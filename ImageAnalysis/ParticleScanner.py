@@ -315,7 +315,8 @@ class ParticleScanner(HasTraits):
             print("Matt: Taking Andor 0 order bias image.")  
             raman.sham.ShamrockGotoZeroOrder()
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
+            print("Matt: some points:"+str(image[100,800])+" , "+str(image[1,1]))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_Bias_0Order_int", data=image)
             g.create_dataset("Raman_Bias_0Order_wl", data=wavelengths)
@@ -386,7 +387,7 @@ class ParticleScanner(HasTraits):
             # --- Set Infinity3 exposure/gain very low and image beam profile. Then restore old values
             oldExposure = cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._get_value()
             oldGain = cam.parameters[cam.parameters[0].list_names().index('GAIN')]._get_value()
-            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(float(-inf))
+            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(0) #sometimes need to set to float(-inf)
             cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(0)
             print("Matt: Taking Infinity3 image of laser beam profile.")   
             #we're going to take a picture - best make sure we've waited a moment for the focus to return
@@ -425,6 +426,10 @@ class ParticleScanner(HasTraits):
             # --- Turn off laser --- Make this robust (i.e. laser.close() instead of trigger()) TODO !!!!!!!!!!!!!!!!!!!!!!!!           
             print("Matt: Closing the laser shutter.")
             raman.shutter.trigger()
+            
+            datafile_group.file.flush()
+            sys.exit("Stopping here because Matt is doing some tests.")                
+            
             # --- Open the white light shutter
             print("Matt: Turning white light back on.")  
             light_shutter.open_shutter()
@@ -537,9 +542,9 @@ class ParticleScanner(HasTraits):
             print("Matt: Closing white light shutter.")
             light_shutter.close_shutter()
             
+            ###################################################################################################################
             print("Reached the end of Matt's code.")
-            datafile_group.file.flush()
-            sys.exit("Stopping here because Matt is doing some tests.")            
+            ###################################################################################################################
             
             ### take andor image 0 order and a spectrum
             "first bring the laser into focus"
@@ -635,8 +640,8 @@ if __name__ == "__main__":
     cam.edit_traits()
     spectrometer.edit_traits()
 #    spectrometer.show_gui(blocking = False)
-    mapper.edit_traits()  
-    scanner.edit_traits()
+#    mapper.edit_traits()  
+#    scanner.edit_traits()
     aligner.edit_traits()
     viewer.edit_traits()
     
@@ -658,6 +663,10 @@ if __name__ == "__main__":
     #you can count the number of particles with this code:
             #len(scanner.datafile['particleScans/scan0'].keys())
             #NB replace scan1 with the number of your latest scan
+    
+    #MATT: testing !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    scanner.edit_traits()    
+    mapper.edit_traits()
     
     def closeall():
         cam.close()

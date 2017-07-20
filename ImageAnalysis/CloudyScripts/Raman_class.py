@@ -125,14 +125,14 @@ class Raman_spec(HasTraits):
         #0: 3 MH
         #1: 1 MHz
         #2: 50 kHz
-        self.readout_rate = 2
+        self.readout_rate = 0
         
         #Acquisition settings"
-        #Single track"
-        self.centre_line = 100
-        self.readout_height = 10
-        self.cam.SetReadMode(3)
-        self.cam.SetSingleTrack(self.centre_line,self.readout_height)
+        #Full Image"
+        #self.centre_line = 100
+        #self.readout_height = 10
+        self.cam.SetReadMode(4)
+        #self.cam.SetSingleTrack(self.centre_line,self.readout_height)
         
         self.cam.SetTriggerMode(0)
         self.cam.SetShutter(1,0,30,30)
