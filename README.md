@@ -4,4 +4,4 @@ A repository of various scripts for data processing, data collection, and more. 
 
 ## Author
 
-* **Matthew J Horton** - [Email](mailto:mjh250@cam.ac.uk?Subject=A%20question%20about%20your%20GitHub%20repository)
+* **Matthew J Horton** - *Email:* - [mjh250@cam.ac.uk](mailto:mjh250@cam.ac.uk?Subject=A%20question%20about%20your%20GitHub%20repository)
