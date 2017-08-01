@@ -5,9 +5,9 @@ Created on Wed Apr 08 13:20:35 2015
 @author: felixbenz
 """
 
-from thorlabs_sc10 import *
-from andor import *
-from shamrock import *
+from nplab.instrument.shutter.thorlabs_sc10 import ThorLabsSC10
+from nplab.instrument.camera.Andor import Andor
+from nplab.instrument.spectrometer.shamrock import Shamrock
 from Powermeter import ThorlabsPM100
 import time
 import visa
@@ -105,8 +105,8 @@ class Raman_spec(HasTraits):
                     ),resizable=True,width=800,height=800,title="Raman Experiment")
                         
     def __init__(self):
-        #set the shutter, can be opened by calling shutter.trigger()"
-        self.shutter = SC10()
+        #set the shutter, can be opened by calling shutter.toggle()"
+        self.shutter = ThorLabsSC10('COM1')
 
         #Set the powermeter"
         rm = visa.ResourceManager()
@@ -131,37 +131,37 @@ class Raman_spec(HasTraits):
         #Full Image"
         #self.centre_line = 100
         #self.readout_height = 10
-        self.cam.SetReadMode(4)
-        #self.cam.SetSingleTrack(self.centre_line,self.readout_height)
+        self.cam.SetParameter('ReadMode', 4)
+        #self.cam.SetParameter('SingleTrack', self.centre_line,self.readout_height)
         
-        self.cam.SetTriggerMode(0)
-        self.cam.SetShutter(1,0,30,30)
-        self.cam.SetExposureTime(self.exptime)
-        self.cam.SetCoolerMode(0)
+        self.cam.SetParameter('TriggerMode', 0)
+        self.cam.SetParameter('Shutter', 1,0,30,30)
+        self.cam.SetParameter('Exposure', self.exptime)
+        self.cam.SetParameter('CoolerMode', 0)
         
-        self.cam.SetOutputAmplifier(self.preamp)
-        self.cam.SetPreAmpGain(self.PreAmpGain)
-        #self.cam.SetEMCCDGain(EMCCDGain)
-        
-        self.cam.SetHSSpeed(self.preamp,self.readout_rate)
+        self.cam.SetParameter('OutAmp', self.preamp)
+        self.cam.SetParameter('PreAmpGain', self.PreAmpGain)
+        #self.cam.SetParameter('EMCCDGain', EMCCDGain)
+
+        self.cam.SetParameter('NumHSSpeed', self.preamp, self.readout_rate)
         
         #some basic commands for the shamrock
         self.sham = Shamrock()
         self.centre_Wavelength = 640 #640 for viewing antistokes, 696 otherwise
         self.slit_width = 100
         
-        self.sham.ShamrockSetPixelWidth(16)
-        self.sham.ShamrockSetNumberPixels(1600)
-        self.sham.ShamrockSetWavelength(self.centre_Wavelength)
+        self.sham.SetPixelWidth(16)
+        self.sham.SetNumberPixels(1600)
+        self.sham.SetWavelength(self.centre_Wavelength)
         time.sleep(5)
-        self.sham.ShamrockSetSlit(self.slit_width)
+        self.sham.SetSlit(self.slit_width)
         time.sleep(5)
         
-        self.slit_size = self.sham.ShamrockGetSlit()
-        self.centre_wavelength = float(str(self.sham.ShamrockGetWavelength())[:5])
+        self.slit_size = self.sham.GetSlit()
+        self.centre_wavelength = float(str(self.sham.GetWavelength())[:5])
         self.laser_power = float(str(self.read_power()*1E3)[:5])
-        self.cam.GetTemperature()
-        self.CCD_temperature=self.cam.temperature
+        self.cam.GetParameter('CurrentTemperature')
+        self.CCD_temperature=self.cam.CurrentTemperature
         self.Integration_time = self.exptime
         
         #self.Raman_spectrum = np.zeros(1600)
@@ -179,11 +179,11 @@ class Raman_spec(HasTraits):
 
     "Cool the CCD"
     def CCD_cooling(self,Tset):
-        self.cam.SetCoolerMode(0)
+        self.cam.SetParameter('CoolerMode', 0)
         self.cam.CoolerON()
-        self.cam.SetTemperature(Tset)
-        self.cam.GetTemperature()
-        self.CCD_temperature=self.cam.temperature
+        self.cam.SetParameter('SetTemperature', Tset)
+        self.cam.GetParameter('CurrentTemperature')
+        self.CCD_temperature=self.cam.CurrentTemperature
         self.CCD_temp_setpoint = Tset
          
         self.cooling_thread = threading.Thread(target=self.CCD_cooling_function)
@@ -191,66 +191,54 @@ class Raman_spec(HasTraits):
     
     def CCD_cooling_function(self):
         """this function should only EVER be executed by _wait_for_temperature_to_stabilise_fired."""
-        while self.cam.GetTemperature() is not 'DRV_TEMP_STABILIZED':
-            self.CCD_temperature=self.cam.temperature
-            print "Temperature is: %g (Tset: %g)" % (self.cam.temperature, self.CCD_temp_setpoint)
+        while self.cam.GetParameter('CurrentTemperature') is not 'DRV_TEMP_STABILIZED':
+            self.CCD_temperature=self.cam.CurrentTemperature
+            print "Temperature is: %g (Tset: %g)" % (self.cam.CurrentTemperature, self.CCD_temp_setpoint)
             sys.stdout.flush()
             time.sleep(30)
         return "Cooling finished!"    
     
     def GetWavelength(self):
-        self.sham.ShamrockGetCalibration()
+        self.sham.GetCalibration()
         wavelengths = self.sham.wl_calibration
         return wavelengths
         
     def take_bkg(self):
-        self.cam.StartAcquisition()
-        while self.cam.GetStatus() is not 'DRV_IDLE':
-            print "Data not yet acquired, waiting 0.5s"
-            time.sleep(0.5)
-        data = []    
-        self.cam.GetAcquiredData(data)
-        return data
+        return self.cam.capture()[0]
         
     def take_signal(self):
-        self.shutter.trigger()
+        self.shutter.open_shutter()
         time.sleep(0.1)
-        self.cam.StartAcquisition()
-        while self.cam.GetStatus() is not 'DRV_IDLE':
-            print "Data not yet acquired, waiting 0.5s"
-            time.sleep(0.5)
-        data = []
         self.laserpower = self.read_power()
-        self.shutter.trigger()
-        self.cam.GetAcquiredData(data)
-        return data
+        self.shutter.close_shutter()
+        return self.cam.capture()[0]
         
     def take_fast_kinetic(self):
         
         #fast raman
-        self.cam.SetAcquisitionMode(3)
-        self.cam.SetReadMode(0)
+        self.cam.SetParameter('AcquisitionMode', 3)
+        self.cam.SetParameter('ReadMode', 0)
         self.readout_rate = 2 #50kHz
-        self.cam.SetHSSpeed(self.preamp,self.readout_rate)
+        self.cam.SetParameter('NumHSSpeed', self.preamp, self.readout_rate)
         self.exptime = 0.01
-        self.cam.SetExposureTime(self.exptime) #set exposure time    
+        self.cam.SetParameter('Exposure', self.exptime) #set exposure time    
         self.cycles = 1000 #number of cycles
-        self.cam.SetNumberKinetics(self.cycles) 
+        self.cam.SetParameter('NKin', self.cycles) 
         
             
         #get wavelength calibration
-        self.sham.ShamrockGetCalibration()
+        self.sham.GetCalibration()
         self.Raman_wavelengths = self.sham.wl_calibration
             
         #open camera shutter
-        self.cam.SetShutter(1,5,30,30) # 5 is open shutter for all series
+        self.cam.SetParameter('Shutter', 1,5,30,30) # 5 is open shutter for all series
         
         time.sleep(0.1)
             
-        self.cam.GetAcquisitionTimings()
+        self.cam.GetParameter('AcquisitionTimings')
         self.cycle_time = self.cam.kinetic
         
-        self.shutter.trigger()
+        self.shutter.open_shutter()
         time.sleep(0.1)
         
         objective_correction = 0.045322
@@ -261,43 +249,39 @@ class Raman_spec(HasTraits):
         spectra = np.array([])
         self.times = np.arange(0.0,float(self.cycle_time*self.cycles),float(self.cycle_time))
             
-        self.cam.StartAcquisition()
-        while self.cam.GetStatus() is not 'DRV_IDLE':
-            time.sleep(0.01)
-        self.shutter.trigger()
-        kinetic_data = []
-        self.cam.GetAcquiredData(kinetic_data)
+        kinetic_data = self.cam.capture()[0]
+        self.shutter.close_shutter()
         self.kinetic_scan_data = np.array((kinetic_data),dtype = 'float64')
         
     
     def _go_to_zero_fired(self):
-        self.sham.ShamrockGotoZeroOrder()
+        self.sham.GotoZeroOrder()
         time.sleep(5)
-        self.centre_wavelength = self.sham.ShamrockGetWavelength()    
+        self.centre_wavelength = self.sham.GetWavelength()    
         
     def _set_wavelength_fired(self):
-        self.sham.ShamrockSetWavelength(self.centre_wavelength)
+        self.sham.SetWavelength(self.centre_wavelength)
         
     def _set_slit_fired(self):
-        self.sham.ShamrockSetSlit(self.slit_size)
+        self.sham.SetSlit(self.slit_size)
         
     def _reset_slit_fired(self):
-        self.sham.ShamrockSlitReset()
+        self.sham.SlitReset()
         time.sleep(5)
-        self.slit_size = self.sham.ShamrockGetSlit()
+        self.slit_size = self.sham.GetSlit()
     
     def _read_laser_power_fired(self):
         self.laser_power = float(str(self.read_power()*1E3)[:5])
         
     def _laser_shutter_fired(self):
-        self.shutter.trigger()
+        self.shutter.toggle()
         
     def _system_shutdown_fired(self):
         self.SystemShutdown()
     
     def SystemShutdown(self):
-        self.sham.ShamrockClose()
-        self.cam.ShutDown()
+        self.sham.Close()
+        self.cam.__del__()
         self.file.close()
     
     def _next_scan_fired(self):
@@ -305,23 +289,17 @@ class Raman_spec(HasTraits):
         self.save_group = self.output_group.require_group('scan%d' %self.scan_number)        
         
     def _set_temperature_fired(self):
-        self.cam.SetTemperature(self.CCD_temperature)
+        self.cam.SetParameter('SetTemperature', self.CCD_temperature)
     
     def _get_temperature_fired(self):
-        self.cam.GetTemperature()
-        self.CCD_temperature=self.cam.temperature
+        self.cam.GetParameter('CurrentTemperature')
+        self.CCD_temperature=self.cam.CurrentTemperature
         
     def _set_integration_time_fired(self):
-        self.cam.SetExposureTime(self.Integration_time)
+        self.cam.SetParameter('Exposure', self.Integration_time)
     
     def _acquire_data_fired(self):
-        self.cam.StartAcquisition()
-        while self.cam.GetStatus() is not 'DRV_IDLE':
-            print "Data not yet acquired, waiting 0.5s"
-            time.sleep(0.5)
-        data = []        
-        self.cam.GetAcquiredData(data)
-        self.Raman_spectrum = data
+        self.Raman_spectrum = self.cam.capture()[0]
         self.Raman_wavelengths = self.GetWavelength()
         self._get_Raman_plot()
         
@@ -335,7 +313,7 @@ class Raman_spec(HasTraits):
         if(self.CoolerStatus is False):
             self.cam.CoolerON()
             self.CoolerStatus=True
-        self.cam.GetTemperature()
+        self.cam.GetParameter('CurrentTemperature')
         self.CCD_temperature=self.cam.temperature
         
         #self._cooling_stop_event = threading.Event()
@@ -351,7 +329,7 @@ class Raman_spec(HasTraits):
         return p
 
     def _get_Raman_wavelengths(self):
-        self.sham.ShamrockGetCalibration()
+        self.sham.GetCalibration()
         wavelengths = self.sham.wl_calibration
         return wavelengths
         

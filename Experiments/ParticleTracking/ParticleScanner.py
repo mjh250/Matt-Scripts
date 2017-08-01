@@ -279,6 +279,18 @@ class ParticleScanner(HasTraits):
         if datafile_group is None:
             datafile_group=self.new_data_group("particleScans/scan%d",self.datafile)
         def align_and_take_z_scan():
+            # --- Initialize shutter positions by making sure they are all closed
+            print("Matt: Initializing shutter positions.")
+            light_shutter.close_shutter()
+            raman.shutter.close_shutter()
+            # --- Open white light shutter and close laser shutter
+            print("Matt: Opening white light shutter.")
+            light_shutter.open_shutter()
+            # --- Fully open Shamrock slit
+            print("Matt: Opening spectrometer slit.")
+            raman.sham.SetSlit(2000)
+            # --- Wait a bit for settings to be applied
+            time.sleep(1)
             # --- Do Autofocus using OceanOptics Spectrum
             print("Matt: Doing autofocus.")
             self.csm.autofocus_iterate(np.arange(-2.5,2.5,0.5))
@@ -296,7 +308,7 @@ class ParticleScanner(HasTraits):
             dset.attrs.create("camera_centre_position",self.csm.camera_centre_position())
             dset.attrs.create("timestamp",datetime.datetime.now().isoformat())
             dset.attrs.create("dz",dz)
-            # --- Close all shutters --- TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # --- Close all shutters
             print("Matt: Closing white light shutter.")
             light_shutter.close_shutter()
             # --- Set Infinity3 camera settings --- TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -313,10 +325,9 @@ class ParticleScanner(HasTraits):
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
             # --- Andor 0 order
             print("Matt: Taking Andor 0 order bias image.")  
-            raman.sham.ShamrockGotoZeroOrder()
+            raman.sham.GotoZeroOrder()
             time.sleep(5)
             image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
-            print("Matt: some points:"+str(image[100,800])+" , "+str(image[1,1]))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_Bias_0Order_int", data=image)
             g.create_dataset("Raman_Bias_0Order_wl", data=wavelengths)
@@ -326,9 +337,9 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("description",raman.scan_desc)
             # --- Andor spectrum
             print("Matt: Taking Andor spectrum bias image.")  
-            raman.sham.ShamrockSetWavelength(raman.centre_Wavelength)
+            raman.sham.SetWavelength(raman.centre_Wavelength)
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_Bias_Spectrum_int", data=image)
             g.create_dataset("Raman_Bias_Spectrum_wl", data=wavelengths)
@@ -338,7 +349,7 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("description",raman.scan_desc)
             # --- OceanOptics
             print("Matt: Taking OceanOptics bias image.")  
-            (oospec, oowl) = spectrometer.read()
+            (oowl, oospec) = spectrometer.read()
             g.create_dataset("OOptics_Bias_Spectrum_int", data=oospec)
             g.create_dataset("OOptics_Bias_Spectrum_wl", data=oowl)
             # --- Turn on white light
@@ -356,9 +367,9 @@ class ParticleScanner(HasTraits):
             # --- Take white light spectrum (Ocean Optics) TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            
             # --- Take white light spectrum (Andor)
             print("Matt: Taking white light spectrum on Andor")
-            raman.sham.ShamrockSetWavelength(raman.centre_Wavelength)
+            raman.sham.SetWavelength(raman.centre_Wavelength)
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_White_Light_Spectrum_int", data=image)
             g.create_dataset("Raman_White_Light_Spectrum_wl", data=wavelengths)
@@ -368,9 +379,9 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("description",raman.scan_desc)
             # --- Take white light image (Andor)
             print("Matt: Taking Andor 0 order white light image.")  
-            raman.sham.ShamrockGotoZeroOrder()
+            raman.sham.GotoZeroOrder()
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_White_Light_0Order_int", data=image)
             g.create_dataset("Raman_White_Light_0Order_wl", data=wavelengths)
@@ -381,9 +392,9 @@ class ParticleScanner(HasTraits):
             # --- Turn off white light
             print("Matt: Closing white light shutter.")
             light_shutter.close_shutter()
-            # --- Turn on laser --- Make this robust (i.e. laser.close() instead of trigger()) TODO !!!!!!!!!!!!!!!!!!!!!!!!           
+            # --- Turn on laser        
             print("Matt: Opening the laser shutter.")
-            raman.shutter.trigger()
+            raman.shutter.open_shutter()
             # --- Set Infinity3 exposure/gain very low and image beam profile. Then restore old values
             oldExposure = cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._get_value()
             oldGain = cam.parameters[cam.parameters[0].list_names().index('GAIN')]._get_value()
@@ -401,9 +412,9 @@ class ParticleScanner(HasTraits):
             cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(oldGain)
             # --- Take image of laser zero-order (Andor)
             print("Matt: Taking Andor 0 order laser image.")  
-            raman.sham.ShamrockGotoZeroOrder()
+            raman.sham.GotoZeroOrder()
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_Laser_0Order_int", data=image)
             g.create_dataset("Raman_Laser_0Order_wl", data=wavelengths)
@@ -413,9 +424,9 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("description",raman.scan_desc)
             # --- Take image of laser spectrum (Andor)
             print("Matt: Taking Andor spectrum laser image.")  
-            raman.sham.ShamrockSetWavelength(raman.centre_Wavelength)
+            raman.sham.SetWavelength(raman.centre_Wavelength)
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_Laser_Spectrum_int", data=image)
             g.create_dataset("Raman_Laser_Spectrum_wl", data=wavelengths)
@@ -423,13 +434,9 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("Slit size",raman.slit_size)
             rint.attrs.create("Integration time",raman.Integration_time)
             rint.attrs.create("description",raman.scan_desc) 
-            # --- Turn off laser --- Make this robust (i.e. laser.close() instead of trigger()) TODO !!!!!!!!!!!!!!!!!!!!!!!!           
+            # --- Turn off laser         
             print("Matt: Closing the laser shutter.")
-            raman.shutter.trigger()
-            
-            datafile_group.file.flush()
-            sys.exit("Stopping here because Matt is doing some tests.")                
-            
+            raman.shutter.close_shutter()
             # --- Open the white light shutter
             print("Matt: Turning white light back on.")  
             light_shutter.open_shutter()
@@ -456,9 +463,9 @@ class ParticleScanner(HasTraits):
             # --- Take white light spectrum at background location (Ocean Optics) TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            
             # --- Take white light spectrum at background location (Andor)
             print("Matt: Taking white light spectrum at background location on Andor")
-            raman.sham.ShamrockSetWavelength(raman.centre_Wavelength)
+            raman.sham.SetWavelength(raman.centre_Wavelength)
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_White_Light_Bkgnd_Spectrum_int", data=image)
             g.create_dataset("Raman_White_Light_Bkgnd_Spectrum_wl", data=wavelengths)
@@ -468,9 +475,9 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("description",raman.scan_desc)
             # --- Take white light image at background location (Andor)
             print("Matt: Taking Andor 0 order white light image at background location.")  
-            raman.sham.ShamrockGotoZeroOrder()
+            raman.sham.GotoZeroOrder()
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_White_Light_Bkgnd_0Order_int", data=image)
             g.create_dataset("Raman_White_Light_0Order_Bkgnd_wl", data=wavelengths)
@@ -481,13 +488,13 @@ class ParticleScanner(HasTraits):
             # --- Turn off white light
             print("Matt: Closing white light shutter.")
             light_shutter.close_shutter()
-            # --- Turn on laser --- Make this robust (i.e. laser.close() instead of trigger()) TODO !!!!!!!!!!!!!!!!!!!!!!!!           
+            # --- Turn on laser          
             print("Matt: Opening the laser shutter.")
-            raman.shutter.trigger()
+            raman.shutter.open_shutter()
             # --- Set Infinity3 exposure/gain very low and image beam profile. Then restore old values
             oldExposure = cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._get_value()
             oldGain = cam.parameters[cam.parameters[0].list_names().index('GAIN')]._get_value()
-            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(float(-inf))
+            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(0) #sometimes need to set to float(-inf)
             cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(0)
             print("Matt: Taking Infinity3 image of laser beam profile at background location.")   
             #we're going to take a picture - best make sure we've waited a moment for the focus to return
@@ -501,9 +508,9 @@ class ParticleScanner(HasTraits):
             cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(oldGain)
             # --- Take image of laser zero-order at background location (Andor)
             print("Matt: Taking Andor 0 order laser image at background location.")  
-            raman.sham.ShamrockGotoZeroOrder()
+            raman.sham.GotoZeroOrder()
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_Laser_0Order_atBkgndLoc_int", data=image)
             g.create_dataset("Raman_Laser_0Order_atBkgndLoc_wl", data=wavelengths)
@@ -513,9 +520,9 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("description",raman.scan_desc)
             # --- Take image of laser spectrum at background location (Andor)
             print("Matt: Taking Andor spectrum laser image at background location.")  
-            raman.sham.ShamrockSetWavelength(raman.centre_Wavelength)
+            raman.sham.SetWavelength(raman.centre_Wavelength)
             time.sleep(5)
-            image = raman.take_bkg()
+            image = np.reshape(raman.take_bkg(),(-1, raman.sham.pixel_number))
             wavelengths = raman.GetWavelength()
             rint = g.create_dataset("Raman_Laser_Spectrum_atBkgndLoc_int", data=image)
             g.create_dataset("Raman_Laser_Spectrum_atBkgndLoc_wl", data=wavelengths)
@@ -523,9 +530,9 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("Slit size",raman.slit_size)
             rint.attrs.create("Integration time",raman.Integration_time)
             rint.attrs.create("description",raman.scan_desc) 
-            # --- Turn off laser --- Make this robust (i.e. laser.close() instead of trigger()) TODO !!!!!!!!!!!!!!!!!!!!!!!!           
+            # --- Turn off laser         
             print("Matt: Closing the laser shutter.")
-            raman.shutter.trigger()
+            raman.shutter.close_shutter()
             # --- Open the white light shutter
             print("Matt: Turning white light back on.")  
             light_shutter.open_shutter()
@@ -538,12 +545,15 @@ class ParticleScanner(HasTraits):
             img = g.create_dataset("Infinity3_SecondWhiteLight_atBkgndLoc_Image",data=image[image.shape[0]/2-50:image.shape[0]/2+50, image.shape[1]/2-50:image.shape[1]/2+50])
             img.attrs.create("stage_position",self.csm.stage.position())
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
-            # --- Turn off all light sources --- MAKE THIS MORE ROBUST, SO LASER TURNS OFF TOO --- TODO !!!!!!!!!!!!!!!!!!!
+            # --- Turn off all light sources
             print("Matt: Closing white light shutter.")
             light_shutter.close_shutter()
+            raman.shutter.close_shutter()
             
             ###################################################################################################################
             print("Reached the end of Matt's code.")
+            datafile_group.file.flush()
+            sys.exit("Stopping here because Matt is doing some tests.")    
             ###################################################################################################################
             
             ### take andor image 0 order and a spectrum
@@ -637,7 +647,7 @@ if __name__ == "__main__":
     scanner = ParticleScanner(mapper, spectrometer, aligner,h5py.File("test_zscans.hdf5",'a'))
     #aligner.spectrum_mask=[500<s and s<600 for s in spectrometer.wavelength]
     viewer = view_spectra.ScanViewer(scanner.datafile)
-    cam.edit_traits()
+    ##################################################################################################################cam.edit_traits()
     spectrometer.edit_traits()
 #    spectrometer.show_gui(blocking = False)
 #    mapper.edit_traits()  
