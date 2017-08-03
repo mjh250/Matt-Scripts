@@ -228,7 +228,7 @@ class SpectrometerAligner(HasTraits):
         self._action_lock.release()
         self.plot_alignment(positions, powers, [np.NaN,np.NaN], cla=False, fade=False, color="green")
         return positions, powers
-    def z_scan(self, dz):
+    def scan(self, dz):
         """Take spectra at (relative) z positions dz and return as a 2D array"""
         spectra = []
         here = self.stage.position()

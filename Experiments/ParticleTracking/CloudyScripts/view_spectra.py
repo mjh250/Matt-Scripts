@@ -20,6 +20,11 @@ import h5py
 import gaussian_fit
 import scipy.ndimage.filters
 
+# --- Files are located in the parent directory, so change directory before running.
+import os
+os.chdir("..")
+# --- Change this as required to reflect location of files
+
 class OverviewViewer(HasTraits):
     figure = Instance(Figure, ())
     scan_number = Range(0,136,0)
@@ -105,17 +110,17 @@ class ScanViewer(HasTraits):
     def refresh_data(self):
         print "switching to scan %d" % self.scan_number
         try:
-            g = self._hdf5file["particleScans/scan%d/z_scan_%d" % (self.group_number,self.scan_number)]
+            g = self._hdf5file["particleScans/scan%d/scan_%d" % (self.group_number,self.scan_number)]
         except Exception as e:
-            print "Error switching to particleScans/scan%d/z_scan_%d\n" % (self.group_number,self.scan_number)
+            print "Error switching to particleScans/scan%d/scan_%d\n" % (self.group_number,self.scan_number)
             print e
             return False
         image = g['camera_image']
-        zscan = g['z_scan']
-        spectrum = np.mean(zscan, axis=0)
-        wavelengths = zscan.attrs.get("wavelengths")
-        reference = zscan.attrs.get("reference")
-        background = zscan.attrs.get("background")
+        scan = g['scan']
+        spectrum = np.mean(scan, axis=0)
+        wavelengths = scan.attrs.get("wavelengths")
+        reference = scan.attrs.get("reference")
+        background = scan.attrs.get("background")
         if self.background_subtract or self.use_reference: spectrum -= background
         if self.use_reference: 
             mask = [r < self.reference_threshold for r in (reference-background)] #mask dodgy pixels
@@ -124,8 +129,8 @@ class ScanViewer(HasTraits):
             wavelengths = np.ma.masked_array(wavelengths, mask=mask)
             background = np.ma.masked_array(background, mask=mask)
             spectrum /= abs(reference - background)+0.001
-        self.replot(image[image.shape[0]/2-50:image.shape[0]/2+50,image.shape[1]/2-50:image.shape[1]/2+50,], zscan, wavelengths, spectrum)
-    def replot(self, image, zscan, wavelengths, spectrum):
+        self.replot(image[image.shape[0]/2-50:image.shape[0]/2+50,image.shape[1]/2-50:image.shape[1]/2+50,], scan, wavelengths, spectrum)
+    def replot(self, image, scan, wavelengths, spectrum):
         fig = self.figure
         if fig is None: return #don't plot to a non-existent figure...
         fig.clf() #clear the plot
@@ -139,7 +144,7 @@ class ScanViewer(HasTraits):
         ax0.set_title("Particle Image")
         
         ax1=fig.add_axes((0.05,0.08,0.32,0.42)) #plot the z stack
-        ax1.imshow(zscan, extent=(wavelengths.min(), wavelengths.max(), -4, 4), aspect="auto", cmap="cubehelix")
+        ax1.imshow(scan, extent=(wavelengths.min(), wavelengths.max(), -4, 4), aspect="auto", cmap="cubehelix")
         ax1.set_xlabel("Wavelength/nm")
         ax1.set_ylabel("Z/um")        
         
@@ -153,16 +158,16 @@ class ScanViewer(HasTraits):
 
 import scipy.stats
 
-def fit_gaussians_to_z_scan(z_scan, z=None, background=None, threshold=0.2, smoothing_width=1.5):
+def fit_gaussians_to_scan(scan, z=None, background=None, threshold=0.2, smoothing_width=1.5):
     """Fit a Gaussian to the spectrometer counts vs Z curve for each spectrometer pixel.
     
     Parameters:
-        z_scan: 2D array (will be converted to numpy.ndarray) of spectra vs
+        scan: 2D array (will be converted to numpy.ndarray) of spectra vs
             Z, where Z is the first index and wavelength is the second.
-        z: 1D array of Z values for each row of z_scan.  If z_scan is an HDF5
+        z: 1D array of Z values for each row of scan.  If scan is an HDF5
             dataset with attribute 'dz', this will be used by default.
         background: 1D array containing a dark spectrum which is subtracted
-            from the z_scan.  Defaults to HDF5 attribute 'background' as above.
+            from the scan.  Defaults to HDF5 attribute 'background' as above.
             
     Return value: spectrum, peak_z, standard_deviation, background, r
         spectrum: peak height for the fitted Gaussian at each wavelength
@@ -181,20 +186,20 @@ def fit_gaussians_to_z_scan(z_scan, z=None, background=None, threshold=0.2, smoo
     """
     if z is None: #try to find the Z values of the different spectra from metadata if not specified
         try:
-            z=z_scan.attrs.get('dz') #this should work for datasets in an HDF5 file
+            z=scan.attrs.get('dz') #this should work for datasets in an HDF5 file
         except:
             print "Warning: no valid z positions were found, using indices instead"
-            z=range(z_scan.shape[0]) #fall back to indices
+            z=range(scan.shape[0]) #fall back to indices
     if background is None: #similarly, get a head-start on the background from metadata
         try:
-            background=z_scan.attrs.get('background') #this should work for datasets in an HDF5 file
+            background=scan.attrs.get('background') #this should work for datasets in an HDF5 file
         except:
-            z=np.zeros(z_scan.shape[1]) #fall back to zero.  NB it will take a *really* long time to converge like this...
-    z_scan_array = np.array(z_scan, dtype=np.float) - background #first prepare background-subtracted, thresholded arrays
-    scan_s = scipy.ndimage.filters.gaussian_filter1d(z_scan_array, smoothing_width, axis=0, mode='nearest')
+            z=np.zeros(scan.shape[1]) #fall back to zero.  NB it will take a *really* long time to converge like this...
+    scan_array = np.array(scan, dtype=np.float) - background #first prepare background-subtracted, thresholded arrays
+    scan_s = scipy.ndimage.filters.gaussian_filter1d(scan_array, smoothing_width, axis=0, mode='nearest')
     scan_s[scan_s<0.] = 0. #smooth and remove negative points so that we don't get NaNs
     scan_t = (scan_s - scan_s.min(axis=0))/(scan_s.max(axis=0)-scan_s.min(axis=0)) - threshold
-    scan_t[scan_t<0.] = 0. #background-subtracted, thresholded version of z_scan_array - used for finding the peak
+    scan_t[scan_t<0.] = 0. #background-subtracted, thresholded version of scan_array - used for finding the peak
     #Now the fitting starts: find the centroid and width of the distribution in Z (the threshold helps avoid bias from background):
     peak_z = np.sum(scan_t * z[:,np.newaxis], axis=0)/np.sum(scan_t,axis=0)#the z[np.newaxis,:] is "numpy broadcasting", google it!
     standard_deviation = np.sqrt(np.sum(scan_s * (z[:,np.newaxis] - peak_z)**2, axis=0)/np.sum(scan_s,axis=0)) 
@@ -202,9 +207,9 @@ def fit_gaussians_to_z_scan(z_scan, z=None, background=None, threshold=0.2, smoo
     gaussians = np.exp(-(z[:,np.newaxis]-peak_z[np.newaxis,:])**2/(2*standard_deviation**2))
     var_x = np.var(gaussians,axis=0)
     mean_x = np.mean(gaussians,axis=0)
-    var_y = np.var(z_scan_array,axis=0)
-    mean_y = np.mean(z_scan_array,axis=0)
-    covariance = np.mean((gaussians-mean_x) * (z_scan_array - mean_y),axis=0)
+    var_y = np.var(scan_array,axis=0)
+    mean_y = np.mean(scan_array,axis=0)
+    covariance = np.mean((gaussians-mean_x) * (scan_array - mean_y),axis=0)
     slopes = covariance/var_x
     intercepts = mean_y - slopes * mean_x
     peak_height = slopes
@@ -218,33 +223,33 @@ def extract_all_spectra(datafile, outputfile):
     groups = [v for k, v in input_group.iteritems() if "scan" in k]
     for data_group in groups:
         save_group = output_group.require_group(data_group.name.split('/')[-1])
-        z_scan_groups = [group for key, group in data_group.iteritems() if "z_scan_" in key] #filter out scan groups from overview images, etc.
-        shape = (len(z_scan_groups)-1, z_scan_groups[0]['z_scan'].attrs.get('wavelengths').shape[0])
-        shapeRaman = (len(z_scan_groups)-1, 1600)
+        scan_groups = [group for key, group in data_group.iteritems() if "scan_" in key] #filter out scan groups from overview images, etc.
+        shape = (len(scan_groups)-1, scan_groups[0]['scan'].attrs.get('wavelengths').shape[0])
+        shapeRaman = (len(scan_groups)-1, 1600)
         #these datasets will save the fit parameters to each spectrum in the current scan
         spectra = save_group.create_dataset("spectra", shape)
-        for name, value in z_scan_groups[0]['z_scan'].attrs.iteritems():
+        for name, value in scan_groups[0]['scan'].attrs.iteritems():
             spectra.attrs.create(name,value)
         peak_z = save_group.create_dataset("peak_z", shape)
         standard_deviation = save_group.create_dataset("standard_deviation", shape)
         fitted_background = save_group.create_dataset("fitted_background", shape)
         correlation_coefficient = save_group.create_dataset("correlation_coefficient", shape)
         Raman_signal = save_group.create_dataset("Raman_int", shapeRaman)
-        Laser_power = save_group.create_dataset("power", (len(z_scan_groups)-1, 1))
-        Raman_int_time = save_group.create_dataset("int_time", (len(z_scan_groups)-1, 1))        
+        Laser_power = save_group.create_dataset("power", (len(scan_groups)-1, 1))
+        Raman_int_time = save_group.create_dataset("int_time", (len(scan_groups)-1, 1))        
         
         Raman_wavelengths = data_group['Raman_wavelengths']        
         save_group.create_dataset('Raman_wavelengths',data=Raman_wavelengths)        
         #Raman_signal = save_group.create_dataset("Raman_int", shapeRaman)
-        #laser_power = save_group.create_dataset("laser_pow", (len(z_scan_groups),1))
-        for i in range(len(z_scan_groups)-1):
+        #laser_power = save_group.create_dataset("laser_pow", (len(scan_groups),1))
+        for i in range(len(scan_groups)-1):
             try:
-                spectra[i,:] ,peak_z[i,:], standard_deviation[i,:], fitted_background[i,:], correlation_coefficient[i,:] = fit_gaussians_to_z_scan(data_group['z_scan_%d/z_scan' % i])
-                Raman_signal[i,:] = data_group['z_scan_%d/Raman_int' % i]
-                Laser_power[i,:] = data_group['z_scan_%d/Raman_int' % i].attrs.get('laser power')
-                Raman_int_time[i,:] = data_group['z_scan_%d/Raman_int' % i].attrs.get('integration time')
+                spectra[i,:] ,peak_z[i,:], standard_deviation[i,:], fitted_background[i,:], correlation_coefficient[i,:] = fit_gaussians_to_scan(data_group['scan_%d/scan' % i])
+                Raman_signal[i,:] = data_group['scan_%d/Raman_int' % i]
+                Laser_power[i,:] = data_group['scan_%d/Raman_int' % i].attrs.get('laser power')
+                Raman_int_time[i,:] = data_group['scan_%d/Raman_int' % i].attrs.get('integration time')
             except Exception as e:
-                print "Failed to get z_scan in group %s." % group_name
+                print "Failed to get scan in group %s." % group_name
                 #raise e
     save_group = outputfile.require_group('particleScanSummaries/all')
     for name in ["spectra", "standard_deviation", "fitted_background", "correlation_coefficient", "Raman_int", "power", "int_time"]:
@@ -252,14 +257,14 @@ def extract_all_spectra(datafile, outputfile):
         save_group.create_dataset(name, data=np.vstack(datasets))
     
         
-    for name, value in datafile['particleScans/scan0/z_scan_0/z_scan'].attrs.iteritems():
+    for name, value in datafile['particleScans/scan0/scan_0/scan'].attrs.iteritems():
         outputfile['particleScanSummaries/all/spectra'].attrs.create(name,value)
         
     save_group.create_dataset('Raman_wavelengths', data=Raman_wavelengths) 
  
 
 if __name__ == "__main__":
-    file = h5py.File("test_zscans.hdf5",mode="r")
+    file = h5py.File("test_scans.hdf5",mode="r")
    # sv = ScanViewer(file)
    # ov = OverviewViewer(file)
    # sv.edit_traits()
