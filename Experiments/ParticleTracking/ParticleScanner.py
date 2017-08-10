@@ -1,8 +1,13 @@
-
 # -*- coding: utf-8 -*-
 """
 """
-from CloudyScripts import camera, prior_stage, camera_stage_mapper, seabreeze, spectrometer_aligner, Uniblitz_Shutter, view_spectra, Raman_class
+from CloudyScripts import view_spectra, Raman_class
+from nplab.instrument.camera import lumenera
+from nplab.instrument.stage import prior
+from nplab.instrument.stage import camera_stage_mapper
+from nplab.instrument.spectrometer.seabreeze import OceanOpticsSpectrometer
+from nplab.instrument.shutter.BX51_uniblitz import Uniblitz
+from nplab.instrument.spectrometer.spectrometer_aligner import SpectrometerAligner
 import traits
 from traits.api import HasTraits, Float, Enum, Int, Range, Bool, Button, String, on_trait_change, Array
 import traitsui
@@ -73,7 +78,7 @@ class ParticleScanner(HasTraits):
         gmail_user = "lab6.Raman.fb400@gmail.com"
         gmail_pwd = "NQ3dPv6SXZUEdfTE"
         FROM = 'lab6.Raman.fb400@gmail.com'
-        TO = ['cc831@cam.ac.uk'] #must be a list
+        TO = ['mjh250@cam.ac.uk'] #must be a list
         SUBJECT = "Scan finished"
         TEXT = "%d particles scanned" %number
         
@@ -270,18 +275,18 @@ class ParticleScanner(HasTraits):
         time.sleep(1)
         self.csm.camera.update_latest_frame()
         img1 = datafile_group.create_dataset(self.new_dataset_name(datafile_group,"overview_image_%d"),data=self.csm.camera.color_image())
-        img1.attrs.create("stage_position",self.csm.stage.position())
+        img1.attrs.create("stage_position",self.csm.stage.position)
         img1.attrs.create("camera_centre_position",self.csm.camera_centre_position())
         img1.attrs.create("mapping_matrix_camera_to_sample",self.csm.camera_to_sample)
-	img1.attrs.create("timestamp",datetime.datetime.now().isoformat())
+        img1.attrs.create("timestamp",datetime.datetime.now().isoformat())
         img2 = datafile_group.create_dataset(self.new_dataset_name(datafile_group,"overview_image_%d_thresholded"),data=self.threshold_image(self.denoise_image(
                 self.csm.camera.gray_image())))
-        img2.attrs.create("stage_position",self.csm.stage.position())
+        img2.attrs.create("stage_position",self.csm.stage.position)
         img2.attrs.create("camera_centre_position",self.csm.camera_centre_position())
         for key, val in self.get(['median_filter_width','threshold_level']).iteritems():
                 img2.attrs.create(key,val)
         img2.attrs.create("camera_to_sample_matrix",self.csm.camera_to_sample)
-	img2.attrs.create("timestamp",datetime.datetime.now().isoformat())
+        img2.attrs.create("timestamp",datetime.datetime.now().isoformat())
 
     def pf_align_and_do_scan(self, dz=np.arange(-4,4,0.4), datafile_group=None):
         """Set up for a scan of all particles, then return a payload function.
@@ -317,10 +322,10 @@ class ParticleScanner(HasTraits):
             print("Matt: Initializing datafile.")
             g = self.new_data_group("scan_%d",datafile_group)
             dset = g.create_dataset("scan",
-                                    data=self.aligner.scan(dz))
+                                    data=self.aligner.z_scan(dz))
             for key, val in self.aligner.spectrometer.get_metadata().iteritems():
                 dset.attrs.create(key,val)
-            dset.attrs.create("stage_position",self.csm.stage.position())
+            dset.attrs.create("stage_position",self.csm.stage.position)
             dset.attrs.create("camera_centre_position",self.csm.camera_centre_position())
             dset.attrs.create("timestamp",datetime.datetime.now().isoformat())
             dset.attrs.create("dz",dz)
@@ -337,7 +342,7 @@ class ParticleScanner(HasTraits):
             self.csm.camera.update_latest_frame() #take a frame and ignore (for freshness)
             image = self.csm.camera.color_image()
             img = g.create_dataset("Infinity3_Bias_Image",data=image)
-            img.attrs.create("stage_position",self.csm.stage.position())
+            img.attrs.create("stage_position",self.csm.stage.position)
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
             # --- Andor 0 order
             print("Matt: Taking Andor 0 order bias image.")  
@@ -378,7 +383,7 @@ class ParticleScanner(HasTraits):
             self.csm.camera.update_latest_frame() #take a frame and ignore (for freshness)
             image = self.csm.camera.color_image()
             img = g.create_dataset("Infinity3_FirstWhiteLight_Image",data=image[image.shape[0]/2-50:image.shape[0]/2+50, image.shape[1]/2-50:image.shape[1]/2+50])
-            img.attrs.create("stage_position",self.csm.stage.position())
+            img.attrs.create("stage_position",self.csm.stage.position)
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
             # --- Take white light spectrum (Ocean Optics) TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            
             # --- Take white light spectrum (Andor)
@@ -412,20 +417,20 @@ class ParticleScanner(HasTraits):
             print("Matt: Opening the laser shutter.")
             raman.shutter.open_shutter()
             # --- Set Infinity3 exposure/gain very low and image beam profile. Then restore old values
-            oldExposure = cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._get_value()
-            oldGain = cam.parameters[cam.parameters[0].list_names().index('GAIN')]._get_value()
-            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(0) #sometimes need to set to float(-inf)
-            cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(0)
+            oldExposure = cam.exposure
+            oldGain = cam.gain
+            cam.exposure = 0
+            cam.gain = 0
             print("Matt: Taking Infinity3 image of laser beam profile.")   
             #we're going to take a picture - best make sure we've waited a moment for the focus to return
             time.sleep(0.3)
             self.csm.camera.update_latest_frame() #take a frame and ignore (for freshness)
             image = self.csm.camera.color_image()
             img = g.create_dataset("Infinity3_Laser_Beam_Image",data=image)
-            img.attrs.create("stage_position",self.csm.stage.position())
+            img.attrs.create("stage_position",self.csm.stage.position)
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
-            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(oldExposure)
-            cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(oldGain)
+            cam.exposure = oldExposure
+            cam.gain = oldGain
             # --- Take image of laser zero-order (Andor)
             print("Matt: Taking Andor 0 order laser image.")  
             raman.sham.GotoZeroOrder()
@@ -463,7 +468,7 @@ class ParticleScanner(HasTraits):
             self.csm.camera.update_latest_frame() #take a frame and ignore (for freshness)
             image = self.csm.camera.color_image()
             img = g.create_dataset("Infinity3_SecondWhiteLight_Image",data=image[image.shape[0]/2-50:image.shape[0]/2+50, image.shape[1]/2-50:image.shape[1]/2+50])
-            img.attrs.create("stage_position",self.csm.stage.position())
+            img.attrs.create("stage_position",self.csm.stage.position)
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
             # --- Move stage slightly to take background. (MAKE THIS ACTUALLY LOOK FOR A SPOT WITH NO PARTICLES) TODO !!!!!!!!!!!!!!!!
             self.csm.stage.move_rel([1,0,0]) # Move the stage by one micron to a (hopefully) empty area
@@ -474,7 +479,7 @@ class ParticleScanner(HasTraits):
             self.csm.camera.update_latest_frame() #take a frame and ignore (for freshness)
             image = self.csm.camera.color_image()
             img = g.create_dataset("Infinity3_FirstBkgndWhiteLight_Image",data=image[image.shape[0]/2-50:image.shape[0]/2+50, image.shape[1]/2-50:image.shape[1]/2+50])
-            img.attrs.create("stage_position",self.csm.stage.position())
+            img.attrs.create("stage_position",self.csm.stage.position)
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
             # --- Take white light spectrum at background location (Ocean Optics) TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            
             # --- Take white light spectrum at background location (Andor)
@@ -508,20 +513,20 @@ class ParticleScanner(HasTraits):
             print("Matt: Opening the laser shutter.")
             raman.shutter.open_shutter()
             # --- Set Infinity3 exposure/gain very low and image beam profile. Then restore old values
-            oldExposure = cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._get_value()
-            oldGain = cam.parameters[cam.parameters[0].list_names().index('GAIN')]._get_value()
-            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(0) #sometimes need to set to float(-inf)
-            cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(0)
+            oldExposure = cam.exposure
+            oldGain = cam.gain
+            cam.exposure = 0
+            cam.gain = 0
             print("Matt: Taking Infinity3 image of laser beam profile at background location.")   
             #we're going to take a picture - best make sure we've waited a moment for the focus to return
             time.sleep(0.3)
             self.csm.camera.update_latest_frame() #take a frame and ignore (for freshness)
             image = self.csm.camera.color_image()
             img = g.create_dataset("Infinity3_Laser_Beam_Image_atBkgndLoc",data=image)
-            img.attrs.create("stage_position",self.csm.stage.position())
+            img.attrs.create("stage_position",self.csm.stage.position)
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
-            cam.parameters[cam.parameters[0].list_names().index('EXPOSURE')]._set_value(oldExposure)
-            cam.parameters[cam.parameters[0].list_names().index('GAIN')]._set_value(oldGain)
+            cam.exposure = oldExposure
+            cam.gain = oldGain
             # --- Take image of laser zero-order at background location (Andor)
             print("Matt: Taking Andor 0 order laser image at background location.")  
             raman.sham.GotoZeroOrder()
@@ -559,7 +564,7 @@ class ParticleScanner(HasTraits):
             self.csm.camera.update_latest_frame() #take a frame and ignore (for freshness)
             image = self.csm.camera.color_image()
             img = g.create_dataset("Infinity3_SecondWhiteLight_atBkgndLoc_Image",data=image[image.shape[0]/2-50:image.shape[0]/2+50, image.shape[1]/2-50:image.shape[1]/2+50])
-            img.attrs.create("stage_position",self.csm.stage.position())
+            img.attrs.create("stage_position",self.csm.stage.position)
             img.attrs.create("timestamp",datetime.datetime.now().isoformat())
             # --- Turn off all light sources
             print("Matt: Closing white light shutter.")
@@ -568,7 +573,7 @@ class ParticleScanner(HasTraits):
             
             ### POTENTIALLY USEFUL: LASER FOCUS
             #"first bring the laser into focus"
-            #here = stage.position()            
+            #here = stage.position            
             #laser_focus = raman.AlignHeNe(dset) ### remove, keep, or create offset
             #print "Moving to HeNe Focus (%g)" % (laser_focus)
             #stage.move_rel([0,0,laser_focus])
@@ -593,29 +598,28 @@ class ParticleScanner(HasTraits):
         
 if __name__ == "__main__":
     #from nplab.instrument.spectrometer.seabreeze import OceanOpticsSpectrometer as OOSpec
-    cam = camera.Camera(0)
-    stage = prior_stage.ProScan("COM9")
-    light_shutter = Uniblitz_Shutter.UniblitzShutter()
-    light_shutter.open_connection()
+    cam = lumenera.LumeneraCamera(1)
+    stage = prior.ProScan("COM9")
+    light_shutter = Uniblitz()
     stage.query("SERVO 1") #set up stage to use servocontrol
     stage.query("UPR Z 500") #500 um per revolution = lab 6
     mapper = camera_stage_mapper.CameraStageMapper(cam,stage)
     mapper.frames_to_discard = 2 #the Infinity 3 is faster, so we need to throw away more frames
-    mapper.autofocus()
-    mapper.calibrate(7)
-    spectrometer = seabreeze.OceanOpticsSpectrometer(0)
+    #mapper.autofocus()
+    #mapper.calibrate(7)
+    spectrometer = OceanOpticsSpectrometer(0)
  #   spectrometer = OOSpec(0)
-    spectrometer._set_tec_temperature(-21)
+    spectrometer.set_tec_temperature(-21)
   #  spectrometer.set_tec_temperature(-21)
-    aligner = spectrometer_aligner.SpectrometerAligner(spectrometer, stage)
+    aligner = SpectrometerAligner(spectrometer, stage)
     scanner = ParticleScanner(mapper, spectrometer, aligner, h5py.File("test_scans.hdf5",'a'))
     #aligner.spectrum_mask=[500<s and s<600 for s in spectrometer.wavelength]
     viewer = view_spectra.ScanViewer(scanner.datafile)
     ##################################################################################################################cam.edit_traits()
-    spectrometer.edit_traits()
-#    spectrometer.show_gui(blocking = False)
+    spectrometer.show_gui(blocking = False)
 #    mapper.edit_traits()  
 #    scanner.edit_traits()
+    cam.show_gui(False)
     aligner.edit_traits()
     viewer.edit_traits()
     
@@ -628,7 +632,6 @@ if __name__ == "__main__":
     raman.cam.verbosity=False
     
     stop_tile = threading.Event()    
-
     scanner.edit_traits()    
     mapper.edit_traits()
 
@@ -645,7 +648,7 @@ if __name__ == "__main__":
     def closeall():
         cam.close()
         stage.ser.close()
-        seabreeze.shutdown_seabreeze()
+        spectrometer.shutdown_seabreeze()
         light_shutter.close_connection()
         raman.SystemShutdown()        
         

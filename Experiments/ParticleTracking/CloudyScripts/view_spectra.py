@@ -21,8 +21,8 @@ import gaussian_fit
 import scipy.ndimage.filters
 
 # --- Files are located in the parent directory, so change directory before running.
-import os
-os.chdir("..")
+#import os
+#os.chdir("..")
 # --- Change this as required to reflect location of files
 
 class OverviewViewer(HasTraits):
