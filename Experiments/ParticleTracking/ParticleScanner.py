@@ -293,8 +293,7 @@ class ParticleScanner(HasTraits):
         
         The "payload function" is suitable for the eponymous argument of 
         go_to_particles, and will autofocus, align particle to fibre, and take
-        a Z stack.  NB the payload function "wraps up" the arguments neatly so
-        we don't need to store things like the depth of the Z stack.
+        a scan.
         """
         if datafile_group is None:
             datafile_group=self.new_data_group("particleScans/scan%d",self.datafile)
