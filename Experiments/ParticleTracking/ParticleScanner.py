@@ -405,7 +405,9 @@ class ParticleScanner(HasTraits):
             # take a frame and ignore (for freshness)
             self.csm.camera.update_latest_frame()
             image = self.csm.camera.color_image()
-            img = g.create_dataset("Infinity3_Bias_Image", data=image)
+            img = g.create_dataset("Infinity3_Bias_Image", data=image[
+                    image.shape[0]/2-50: image.shape[0]/2+50,
+                    image.shape[1]/2-50:image.shape[1]/2+50])
             img.attrs.create("stage_position", self.csm.stage.position)
             img.attrs.create("timestamp", datetime.datetime.now().isoformat())
             # Andor 0 order
@@ -500,7 +502,9 @@ class ParticleScanner(HasTraits):
             # Take a frame and ignore (for freshness)
             self.csm.camera.update_latest_frame()
             image = self.csm.camera.color_image()
-            img = g.create_dataset("Infinity3_Laser_Beam_Image", data=image)
+            img = g.create_dataset("Infinity3_Laser_Beam_Image", data=image[
+                    image.shape[0]/2-50: image.shape[0]/2+50,
+                    image.shape[1]/2-50:image.shape[1]/2+50])
             img.attrs.create("stage_position", self.csm.stage.position)
             img.attrs.create("timestamp", datetime.datetime.now().isoformat())
             cam.exposure = oldExposure
@@ -622,7 +626,9 @@ class ParticleScanner(HasTraits):
             self.csm.camera.update_latest_frame()
             image = self.csm.camera.color_image()
             img = g.create_dataset(
-                    "Infinity3_Laser_Beam_Image_atBkgndLoc", data=image)
+                    "Infinity3_Laser_Beam_Image_atBkgndLoc", data=image[
+                            image.shape[0]/2-50: image.shape[0]/2+50,
+                            image.shape[1]/2-50:image.shape[1]/2+50])
             img.attrs.create("stage_position", self.csm.stage.position)
             img.attrs.create("timestamp", datetime.datetime.now().isoformat())
             cam.exposure = oldExposure
