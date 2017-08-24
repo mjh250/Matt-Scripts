@@ -374,12 +374,12 @@ class ParticleScanner(HasTraits):
             print("Matt: Doing autofocus.")
             self.csm.autofocus_iterate(np.arange(-2.5, 2.5, 0.5))
             # short integration time for alignment
-            self.aligner.spectrometer.integration_time = 300.
+            self.aligner.spectrometer.integration_time = 1000.
             self.aligner.optimise_2D(tolerance=0.03, stepsize=0.2)
             # long integration time for measurement
-            self.aligner.spectrometer.integration_time = 1000.
+            self.aligner.spectrometer.integration_time = 3000.
             # Initialize datafile
-            print("Matt: Initializing datafile.")
+            print("Matt: Initializing datafile.") # TODO: Check that this is needed for autofocus
             g = self.new_data_group("scan_%d", datafile_group)
             dset = g.create_dataset("scan",
                                     data=self.aligner.z_scan(dz))
@@ -686,8 +686,8 @@ class ParticleScanner(HasTraits):
             img.attrs.create("stage_position", self.csm.stage.position)
             img.attrs.create("timestamp", datetime.datetime.now().isoformat())
             # Turn off all light sources
-            print("Matt: Closing white light shutter.")
-            light_shutter.close_shutter()
+            print("Matt: Opening the white light shutter and closing the laser shutter.")
+            light_shutter.open_shutter()
             raman.shutter.close_shutter()
 
             # POTENTIALLY USEFUL: LASER FOCUS
@@ -721,7 +721,7 @@ if __name__ == "__main__":
     #     import OceanOpticsSpectrometer as OOSpec
     cam = lumenera.LumeneraCamera(1)
     stage = prior.ProScan("COM9")
-    light_shutter = Uniblitz()
+    light_shutter = Uniblitz("COM7")
     stage.query("SERVO 1")  # set up stage to use servocontrol
     stage.query("UPR Z 500")  # 500 um per revolution = lab 6
     mapper = camera_stage_mapper.CameraStageMapper(cam, stage)
