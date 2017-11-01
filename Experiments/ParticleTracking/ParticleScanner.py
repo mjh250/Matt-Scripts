@@ -3,7 +3,7 @@
 Last edited by Matthew Horton - 15/08/2017
 <mjh250@cam.ac.uk>
 """
-from CloudyScripts import view_spectra, Raman_class
+from F_SERS_rig.ExperimentalScripts import view_spectra, Raman_class
 from nplab.instrument.camera import lumenera
 from nplab.instrument.stage import prior
 from nplab.instrument.stage import camera_stage_mapper
@@ -359,9 +359,11 @@ class ParticleScanner(HasTraits):
 
         def align_and_do_scan():
             # Initialize shutter positions by making sure they are all closed
-            print("Matt: Initializing shutter positions.")
-            light_shutter.close_shutter()
-            raman.shutter.close_shutter()
+            # print("Matt: Initializing shutter positions.")
+            # light_shutter.close_shutter()
+            # raman.shutter.close_shutter()
+            # Prepare z offset to move focus to the donut mode
+            donut_z_offset = -0.0
             # Open white light shutter and close laser shutter
             print("Matt: Opening white light shutter.")
             light_shutter.open_shutter()
@@ -370,16 +372,22 @@ class ParticleScanner(HasTraits):
             raman.sham.SetSlit(2000)
             # Wait a bit for settings to be applied
             time.sleep(1)
-            # Do Autofocus using OceanOptics Spectrum
+
+            # Do Autofocus
             print("Matt: Doing autofocus.")
             self.csm.autofocus_iterate(np.arange(-2.5, 2.5, 0.5))
             # short integration time for alignment
             self.aligner.spectrometer.integration_time = 1000.
             self.aligner.optimise_2D(tolerance=0.03, stepsize=0.2)
+            # Shift focus to the donut mode
+            print("Matt: Shifting focus to the donut mode.")
+            here = self.csm.stage.position
+            self.csm.stage.move(np.array([0, 0, donut_z_offset]) + here)
             # long integration time for measurement
             self.aligner.spectrometer.integration_time = 3000.
+
             # Initialize datafile
-            print("Matt: Initializing datafile.") # TODO: Check that this is needed for autofocus
+            print("Matt: Initializing datafile.")  # TODO: Check that this is needed for autofocus
             g = self.new_data_group("scan_%d", datafile_group)
             dset = g.create_dataset("scan",
                                     data=self.aligner.z_scan(dz))
@@ -442,6 +450,20 @@ class ParticleScanner(HasTraits):
             # Turn on white light
             print("Matt: Turning white light back on.")
             light_shutter.open_shutter()
+
+            # Do Autofocus
+            print("Matt: Doing autofocus.")
+            self.csm.autofocus_iterate(np.arange(-2.5, 2.5, 0.5))
+            # short integration time for alignment
+            self.aligner.spectrometer.integration_time = 1000.
+            self.aligner.optimise_2D(tolerance=0.03, stepsize=0.2)
+            # Shift focus to the donut mode
+            print("Matt: Shifting focus to the donut mode.")
+            here = self.csm.stage.position
+            self.csm.stage.move(np.array([0, 0, donut_z_offset]) + here)
+            # long integration time for measurement
+            self.aligner.spectrometer.integration_time = 3000.
+
             # Take Infinity3 image
             print("Matt: Taking first Infinity3 white light image.")
             # We're going to take a picture - best make sure we've waited a
@@ -483,6 +505,20 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("Slit size", raman.slit_size)
             rint.attrs.create("Integration time", raman.Integration_time)
             rint.attrs.create("description", raman.scan_desc)
+
+            # Do Autofocus
+            print("Matt: Doing autofocus.")
+            self.csm.autofocus_iterate(np.arange(-2.5, 2.5, 0.5))
+            # short integration time for alignment
+            self.aligner.spectrometer.integration_time = 1000.
+            self.aligner.optimise_2D(tolerance=0.03, stepsize=0.2)
+            # Shift focus to the donut mode
+            print("Matt: Shifting focus to the donut mode.")
+            here = self.csm.stage.position
+            self.csm.stage.move(np.array([0, 0, donut_z_offset]) + here)
+            # long integration time for measurement
+            self.aligner.spectrometer.integration_time = 3000.
+
             # Turn off white light
             print("Matt: Closing white light shutter.")
             light_shutter.close_shutter()
@@ -553,14 +589,28 @@ class ParticleScanner(HasTraits):
                                image.shape[1]/2-50:image.shape[1]/2+50])
             img.attrs.create("stage_position", self.csm.stage.position)
             img.attrs.create("timestamp", datetime.datetime.now().isoformat())
+
+            # Do Autofocus
+            print("Matt: Doing autofocus.")
+            self.csm.autofocus_iterate(np.arange(-2.5, 2.5, 0.5))
+            # short integration time for alignment
+            self.aligner.spectrometer.integration_time = 1000.
+            self.aligner.optimise_2D(tolerance=0.03, stepsize=0.2)
+            # Shift focus to the donut mode
+            print("Matt: Shifting focus to the donut mode.")
+            here = self.csm.stage.position
+            self.csm.stage.move(np.array([0, 0, donut_z_offset]) + here)
+            # long integration time for measurement
+            self.aligner.spectrometer.integration_time = 3000.
+
             # Move stage slightly to take background. (MAKE THIS ACTUALLY LOOK
             # FOR A SPOT WITH NO PARTICLES) TODO !!!!!!!!!!!!!!!!
-            # For now, move the stage by one micron to a (hopefully) empty area
-            self.csm.stage.move_rel([1, 0, 0])
+            # For now, move the stage by 3 microns to a (hopefully) empty area
+            self.csm.stage.move_rel([3, 0, 0])
             # Take Infinity3 white light image (as evidence stage moved to a
             # good location for background)
-            print("Matt: Taking first Infinity3 white light image for\
-            background location.")
+            print(("Matt: Taking first Infinity3 white light image for "
+                  "background location."))
             # We're going to take a picture - best make sure we've waited a
             # moment for the focus to return
             time.sleep(0.3)
@@ -576,8 +626,8 @@ class ParticleScanner(HasTraits):
             # Take white light spectrum at background location (Ocean Optics)
             # - TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             # Take white light spectrum at background location (Andor)
-            print("Matt: Taking white light spectrum at background location\
-            on Andor")
+            print(("Matt: Taking white light spectrum at background location "
+                  "on Andor"))
             raman.sham.SetWavelength(raman.centre_Wavelength)
             time.sleep(5)
             image = np.reshape(raman.take_bkg(), (-1, raman.sham.pixel_number))
@@ -591,8 +641,8 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("Integration time", raman.Integration_time)
             rint.attrs.create("description", raman.scan_desc)
             # Take white light image at background location (Andor)
-            print("Matt: Taking Andor 0 order white light image at background\
-            location.")
+            print(("Matt: Taking Andor 0 order white light image at "
+                  "background location."))
             raman.sham.GotoZeroOrder()
             time.sleep(5)
             image = np.reshape(raman.take_bkg(), (-1, raman.sham.pixel_number))
@@ -605,6 +655,20 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("Slit size", raman.slit_size)
             rint.attrs.create("Integration time", raman.Integration_time)
             rint.attrs.create("description", raman.scan_desc)
+
+            # Do Autofocus
+            print("Matt: Doing autofocus.")
+            self.csm.autofocus_iterate(np.arange(-2.5, 2.5, 0.5))
+            # short integration time for alignment
+            self.aligner.spectrometer.integration_time = 1000.
+            self.aligner.optimise_2D(tolerance=0.03, stepsize=0.2)
+            # Shift focus to the donut mode
+            print("Matt: Shifting focus to the donut mode.")
+            here = self.csm.stage.position
+            self.csm.stage.move(np.array([0, 0, donut_z_offset]) + here)
+            # long integration time for measurement
+            self.aligner.spectrometer.integration_time = 3000.
+
             # Turn off white light
             print("Matt: Closing white light shutter.")
             light_shutter.close_shutter()
@@ -617,8 +681,8 @@ class ParticleScanner(HasTraits):
             oldGain = cam.gain
             cam.exposure = 0
             cam.gain = 0
-            print("Matt: Taking Infinity3 image of laser beam profile at\
-            background location.")
+            print(("Matt: Taking Infinity3 image of laser beam profile at "
+                  "background location."))
             # We're going to take a picture - best make sure we've waited a
             # moment for the focus to return
             time.sleep(0.3)
@@ -634,8 +698,8 @@ class ParticleScanner(HasTraits):
             cam.exposure = oldExposure
             cam.gain = oldGain
             # Take image of laser zero-order at background location (Andor)
-            print("Matt: Taking Andor 0 order laser image at background\
-            location.")
+            print(("Matt: Taking Andor 0 order laser image at background "
+                  "location."))
             raman.sham.GotoZeroOrder()
             time.sleep(5)
             image = np.reshape(raman.take_bkg(), (-1, raman.sham.pixel_number))
@@ -649,8 +713,8 @@ class ParticleScanner(HasTraits):
             rint.attrs.create("Integration time", raman.Integration_time)
             rint.attrs.create("description", raman.scan_desc)
             # Take image of laser spectrum at background location (Andor)
-            print("Matt: Taking Andor spectrum laser image at background\
-            location.")
+            print(("Matt: Taking Andor spectrum laser image at background "
+                  "location."))
             raman.sham.SetWavelength(raman.centre_Wavelength)
             time.sleep(5)
             image = np.reshape(raman.take_bkg(), (-1, raman.sham.pixel_number))
@@ -671,8 +735,8 @@ class ParticleScanner(HasTraits):
             light_shutter.open_shutter()
             # Take second Infinity3 white light image at background location
             # (to track drift)
-            print("Matt: Taking second Infinity3 white light image at\
-            background location.")
+            print(("Matt: Taking second Infinity3 white light image at "
+                  "background location."))
             # We're going to take a picture - best make sure we've waited a
             # moment for the focus to return
             time.sleep(0.3)
@@ -686,7 +750,8 @@ class ParticleScanner(HasTraits):
             img.attrs.create("stage_position", self.csm.stage.position)
             img.attrs.create("timestamp", datetime.datetime.now().isoformat())
             # Turn off all light sources
-            print("Matt: Opening the white light shutter and closing the laser shutter.")
+            print(("Matt: Opening the white light shutter and closing the "
+                  "laser shutter."))
             light_shutter.open_shutter()
             raman.shutter.close_shutter()
 
