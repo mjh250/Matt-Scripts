@@ -24,13 +24,17 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
         self.btnRun.clicked.connect(self.btnRun_clicked)
         self.btnClose.clicked.connect(self.btnClose_clicked)
         self.btnBackgroundSelect.clicked.connect(
-                self.btnBackgroundSelect_clicked)
+                                    self.btnBackgroundSelect_clicked)
         self.btnImageSelect.clicked.connect(self.btnImageSelect_clicked)
         self.btnOutputSelect.clicked.connect(self.btnOutputSelect_clicked)
         self.btnCrossSectionSelect.clicked.connect(
-                                        self.btnCrossSectionSelect_clicked)
+                                    self.btnCrossSectionSelect_clicked)
         self.btnRunCrossSection.clicked.connect(
-                                        self.btnRunCrossSection_clicked)
+                                    self.btnRunCrossSection_clicked)
+        self.btnCrossSectionOutputSelect.clicked.connect(
+                                    self.btnCrossSectionOutputSelect_clicked)
+        self.btnSaveCrossSection.clicked.connect(
+                                    self.btnSaveCrossSection_clicked)
 
     def btnBackgroundSelect_clicked(self):
         filepath = QFileDialog.getOpenFileName()[0]
@@ -57,6 +61,13 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
         filepath = QFileDialog.getOpenFileName()[0]
         if filepath:
             self.txtCrossSectionFilepath.setText(filepath)
+        else:
+            return
+
+    def btnCrossSectionOutputSelect_clicked(self):
+        filepath = QFileDialog.getSaveFileName()[0]
+        if filepath:
+            self.txtCrossSectionOutputFilepath.setText(filepath)
         else:
             return
 
@@ -134,6 +145,29 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
             QMessageBox(QMessageBox.Warning,
                         'An error has occurred.',
                         'Error taking cross section or plotting. ' + str(e),
+                        QMessageBox.Ok, self).exec_()
+            return
+        return cs
+
+    def btnSaveCrossSection_clicked(self):
+        crossSectionOutputPath = self.txtCrossSectionOutputFilepath.text()
+        print(crossSectionOutputPath)
+        cs = self.btnRunCrossSection_clicked()
+        print(cs)
+        try:
+            if crossSectionOutputPath:
+                np.savetxt(crossSectionOutputPath, cs, delimiter=',')
+            else:
+                QMessageBox(QMessageBox.Warning,
+                            'Warning',
+                            '''Output saved without user specified output
+                            filepath.''',
+                            QMessageBox.Ok, self).exec_()
+                np.savetxt(crossSectionOutputPath, cs, delimiter=',')
+        except:
+            QMessageBox(QMessageBox.Warning,
+                        'An error has occurred.',
+                        'Error saving cross section.',
                         QMessageBox.Ok, self).exec_()
             return
 
