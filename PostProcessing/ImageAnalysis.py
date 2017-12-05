@@ -35,6 +35,12 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                     self.btnCrossSectionOutputSelect_clicked)
         self.btnSaveCrossSection.clicked.connect(
                                     self.btnSaveCrossSection_clicked)
+        self.btnCropImageFilepath.clicked.connect(
+                                    self.btnCropImageFilepath_clicked)
+        self.btnCropOutputFilepath.clicked.connect(
+                                    self.btnCropOutputFilepath_clicked)
+        self.btnCropRun.clicked.connect(self.btnCropRun_clicked)
+        self.btnCropSave.clicked.connect(self.btnCropSave_clicked)
 
     def btnBackgroundSelect_clicked(self):
         filepath = QFileDialog.getOpenFileName()[0]
@@ -170,6 +176,79 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                         'Error saving cross section.',
                         QMessageBox.Ok, self).exec_()
             return
+
+# _______________________ UNDER CONSTRUCTION
+
+    def btnCropImageFilepath_clicked(self):
+        filepath = QFileDialog.getOpenFileName()[0]
+        if filepath:
+            self.txtCropImageFilepath.setText(filepath)
+        else:
+            return
+
+    def btnCropOutputFilepath_clicked(self):
+        filepath = QFileDialog.getSaveFileName()[0]
+        if filepath:
+            self.txtCropOutputFilepath.setText(filepath)
+        else:
+            return
+
+    def btnCropRun_clicked(self):
+        cropPath = self.txtCropImageFilepath.text()
+        leftCrop = self.spinboxLeftMargin.value()
+        rightCrop = self.spinboxRightMargin.value()
+        topCrop = self.spinboxTopMargin.value()
+        bottomCrop = self.spinboxBottomMargin.value()
+        # Import cross section image
+        try:
+            imToCrop = np.genfromtxt(cropPath, skip_footer=30)
+            imToCrop = np.delete(imToCrop, 0, 1)  # Throw away first column
+        except:
+            QMessageBox(QMessageBox.Warning,
+                        'An error has occurred.',
+                        'Error loading file from image filepath.',
+                        QMessageBox.Ok, self).exec_()
+            return
+        # Process image and plot.
+        try:
+            y, x = imToCrop.shape
+            imToCrop = np.rot90(imToCrop)
+            imCropped = imToCrop[topCrop:(x-bottomCrop),
+                                 leftCrop:(y-rightCrop)]
+            self.widgetDisplay.canvas.axes.imshow(imCropped, 'gray')
+            self.widgetDisplay.canvas.draw()
+            self.widgetDisplay.canvas.show()
+        except Exception, e:
+            QMessageBox(QMessageBox.Warning,
+                        'An error has occurred.',
+                        'Error cropping or plotting. ' + str(e),
+                        QMessageBox.Ok, self).exec_()
+            return
+        return imCropped
+
+    def btnCropSave_clicked(self):
+        cropOutputPath = self.txtCropOutputFilepath.text()
+        print(cropOutputPath)
+        imCropped = self.btnCropRun_clicked()
+        print(imCropped)
+        try:
+            if cropOutputPath:
+                np.savetxt(cropOutputPath, imCropped, delimiter=',')
+            else:
+                QMessageBox(QMessageBox.Warning,
+                            'Warning',
+                            '''Output saved without user specified output
+                            filepath.''',
+                            QMessageBox.Ok, self).exec_()
+                np.savetxt(cropOutputPath, imCropped, delimiter=',')
+        except:
+            QMessageBox(QMessageBox.Warning,
+                        'An error has occurred.',
+                        'Error saving cross section.',
+                        QMessageBox.Ok, self).exec_()
+            return
+
+# ________________________ /UNDER CONSTRUCTION
 
     def btnClose_clicked(self):
         sys.exit()
