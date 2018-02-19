@@ -22,6 +22,7 @@ HSSpeed = 2
 andor_exposure_time_0Order = 5
 andor_exposure_time_spec = andor_exposure_time_0Order*3
 donut_z_offset = -0.0  # z offset to move focus to the donut mode
+centre_wavelength = 675
 
 # Set up camera with click to move stage control
 cam = LumeneraCamera(1)
@@ -70,32 +71,27 @@ wizard.show()
 def OpenWhiteLightShutter():
     print("Matt: Opening white light shutter.")
     whiteShutter.open_shutter()
-    return
 
 
 def CloseWhiteLightShutter():
     print("Matt: Closing white light shutter.")
     whiteShutter.close_shutter()
-    return
 
 
 def OpenLaserShutter():
     print("Matt: Opening the laser shutter.")
     shutter.open_shutter()
-    return
 
 
 def CloseLaserShutter():
     print("Matt: Closing the laser shutter.")
     shutter.close_shutter()
-    return
 
 
 def ShiftFocus(z_offset=donut_z_offset):
     print("Matt: Shifting focus to the donut mode.")
     here = CWL.stage.position
     CWL.stage.move(np.array([0, 0, z_offset]) + here)
-    return
 
 
 def SetShamrockSlit(slitWidth=2000):
@@ -103,7 +99,6 @@ def SetShamrockSlit(slitWidth=2000):
     shamdor.shamrock.SetSlit(slitWidth)
     # Wait a bit for settings to be applied
     time.sleep(1)
-    return
 
 
 def TakeInfinity3Image(imageName="Infinity3_Bias_Image"):
@@ -120,42 +115,44 @@ def TakeInfinity3Image(imageName="Infinity3_Bias_Image"):
             image.shape[1]/2-50:image.shape[1]/2+50])
     img.attrs.create("stage_position", CWL.stage.position)
     img.attrs.create("timestamp", datetime.datetime.now().isoformat())
-    return
 
 
 def TakeAndor0Order(imageName="Raman_Bias_0Order"):
     print("Matt: Taking "+imageName)
     shamdor.shamrock.GotoZeroOrder()
     shamdor.shamrock.SetSlit(2000)
+    shamdor.SetParameter('HSSpeed', HSSpeed)
     shamdor.SetParameter('Exposure', andor_exposure_time_0Order)
     time.sleep(5)
-    # image = np.reshape(shamdor.raw_snapshot()[1], (-1, shamdor.shamrock.pixel_number))
+    # image = np.reshape(shamdor.raw_snapshot()[1],
+    #                    (-1, shamdor.shamrock.pixel_number))
     image = shamdor.raw_snapshot()[1]
-    wavelengths = shamdor.shamrock.GetWavelength()
+    # wavelengths = shamdor.metadata['x_axis']
     rint = wizard.particle_group.create_dataset(imageName+"_int", data=image)
-    wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
+    # wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
     # rint.attrs.create("Laser power", raman.laser_power)
     rint.attrs.create("Slit size", shamdor.shamrock.slit_width)
     rint.attrs.create("Integration time", shamdor.Exposure)
     # rint.attrs.create("description", raman.scan_desc)
-    return
 
 
 def TakeAndorSpec(imageName="Raman_Bias_Spectrum"):
     print("Matt: Taking "+imageName)
-    shamdor.shamrock.SetWavelength(shamdor.shamrock.center_wavelength)
+    shamdor.shamrock.SetWavelength(centre_wavelength)
     shamdor.shamrock.SetSlit(100)
+    shamdor.SetParameter('HSSpeed', HSSpeed)
+    shamdor.SetParameter('Exposure', andor_exposure_time_spec)
     time.sleep(5)
-    # image = np.reshape(shamdor.raw_snapshot()[1], (-1, shamdor.shamrock.pixel_number))
+    # image = np.reshape(shamdor.raw_snapshot()[1],
+    #                    (-1, shamdor.shamrock.pixel_number))
     image = shamdor.raw_snapshot()[1]
-    wavelengths = shamdor.shamrock.GetWavelength()
+    wavelengths = shamdor.metadata['x_axis']
     rint = wizard.particle_group.create_dataset(imageName+"_int", data=image)
     wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
     # rint.attrs.create("Laser power", raman.laser_power)
     rint.attrs.create("Slit size", shamdor.shamrock.slit_width)
     rint.attrs.create("Integration time", shamdor.Exposure)
     # rint.attrs.create("description", raman.scan_desc)
-    return
 
 
 def MoveToBackgroundLoc():
@@ -163,8 +160,64 @@ def MoveToBackgroundLoc():
     # FOR A SPOT WITH NO PARTICLES) TODO !!!!!!!!!!!!!!!!
     # For now, move the stage by 3 microns to a (hopefully) empty area
     CWL.stage.move_rel([3, 0, 0])
+
+
+def Autofocus(useThumbnail=True):
+    CWL.autofocus(use_thumbnail=useThumbnail)
+
+
+def CentreOnFeature(NP_image=None, ignore_z_pos=True):
+    if NP_image is not None:
+        CWL.move_to_feature(NP_image, ignore_z_pos)
+
+
+def StudyParticleEmissionProfile():
+    OpenWhiteLightShutter()
+    SetShamrockSlit(2000)
+    NP_image_unfocused = CWL.thumb_image()
+    Autofocus()
+    NP_image_focused = CWL.thumb_image()
+    CentreOnFeature(NP_image_focused)
+    CloseWhiteLightShutter()
+    TakeInfinity3Image("Infinity3_Bias_Image")
+    TakeAndor0Order("Raman_Bias_0Order")
+    TakeAndorSpec("Raman_Bias_Spectrum")
+    OpenWhiteLightShutter()
+    Autofocus()
+    CentreOnFeature(NP_image_focused)
+    ShiftFocus(donut_z_offset)
+    TakeInfinity3Image("Infinity3_FirstWhiteLight_Image")
+    TakeAndor0Order("Raman_White_Light_0Order")
+    TakeAndorSpec("Raman_White_Light_Spectrum")
+    Autofocus()
+    CentreOnFeature(NP_image_focused)
+    ShiftFocus(donut_z_offset)
+    CloseWhiteLightShutter()
+    OpenLaserShutter()
+    TakeAndor0Order("Raman_Laser_0Order")
+    TakeAndorSpec("Raman_Laser_Spectrum")
+    CloseLaserShutter()
+    OpenWhiteLightShutter()
+    TakeInfinity3Image("Infinity3_SecondWhiteLight_Image")
+    Autofocus()
+    CentreOnFeature(NP_image_focused)
+    ShiftFocus(donut_z_offset)
+    MoveToBackgroundLoc()
+    TakeInfinity3Image("Infinity3_FirstBkgndWhiteLight_Image")
+    TakeAndor0Order("Raman_White_Light_Bkgnd_0Order")
+    TakeAndorSpec("Raman_White_Light_Bkgnd_Spectrum")
+    Autofocus()
+    CentreOnFeature(NP_image_focused)
+    ShiftFocus(donut_z_offset)
+    MoveToBackgroundLoc()
+    CloseWhiteLightShutter()
+    OpenLaserShutter()
+    TakeAndor0Order("Raman_Laser_0Order_atBkgndLoc")
+    TakeAndorSpec("Raman_Laser_Spectrum_atBkgndLoc")
+    CloseLaserShutter()
+    OpenWhiteLightShutter()
+    TakeInfinity3Image("Infinity3_SecondWhiteLight_atBkgndLoc_Image")
+    CloseLaserShutter()
+    OpenWhiteLightShutter()
+    CentreOnFeature(NP_image_unfocused, ignore_z_pos=False)
     return
-
-
-# def CentreOnFeature():
-#     CWL.move_to_feature

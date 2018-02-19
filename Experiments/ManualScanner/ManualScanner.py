@@ -12,7 +12,7 @@ from nplab.instrument.shutter.BX51_uniblitz import Uniblitz
 
 # Set up camera with click to move stage control
 cam = LumeneraCamera(1)
-cam.show_gui(blocking=False)
+#cam.show_gui(blocking=False)
 stage = ProScan("COM9")
 CWL = CameraWithLocation(cam, stage)
 CWL.show_gui(blocking=False)
