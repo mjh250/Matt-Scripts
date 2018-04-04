@@ -130,12 +130,13 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
         pos = self.spinboxCutPosition.value()
         # Import cross section image
         try:
-            imCS = np.genfromtxt(crossSectionPath, skip_footer=30)
-            imCS = np.delete(imCS, 0, 1)  # Throw away first column
-        except:
+            imCS = np.genfromtxt(crossSectionPath, delimiter=',')
+            # imCS = np.genfromtxt(crossSectionPath, skip_footer=30)
+            # imCS = np.delete(imCS, 0, 1)  # Throw away first column
+        except Exception, e:
             QMessageBox(QMessageBox.Warning,
                         'An error has occurred.',
-                        'Error loading file from image filepath.',
+                        'Error loading file from image filepath. ' + repr(e),
                         QMessageBox.Ok, self).exec_()
             return
         # Process image and plot.

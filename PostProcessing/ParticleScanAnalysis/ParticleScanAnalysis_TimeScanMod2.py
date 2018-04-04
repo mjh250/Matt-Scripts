@@ -70,7 +70,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                    for i in range(len(filepaths))]
         else:
             processed_filepaths = [processed_filepath]
-
+        
         for fileNum in range(len(filepaths)):
             filepath = filepaths[fileNum]
             processed_filepath = processed_filepaths[fileNum]
@@ -78,30 +78,23 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                 shutil.os.remove(processed_filepath)
             except OSError:
                 pass
-
+        
             scan_analyzer = ParticleScanAnalysis()
             data = scan_analyzer.getScanDataFile(filepath)
-
+        
             print("Preparing list of particles...")
             scan_number_list = []
             particle_number_list = []
-            for sname in data['particleScans']:
-#            for sname in data:
-#                if sname.startswith('ParticleScannerScan_'):
-                if sname.startswith('scan'):
+            for sname in data:
+                if sname.startswith('ParticleScannerScan_'):
                     scan_number_list.append(len(scan_number_list))
                     particle_num_sublist = []
-#                    for pname in data[sname]:
-                    for pname in data['particleScans/'+sname]:
-#                        if pname.startswith('Particle_'):
-                        if pname.startswith('scan'):
+                    for pname in data[sname]:
+                        if pname.startswith('Particle_'):
                             particle_num_sublist.append(
                                                     len(particle_num_sublist))
                     particle_number_list.append(particle_num_sublist)
             # del particle_number_list[1][-1] # Prevent last particle crash
-            
-            for sublist in particle_number_list:
-                sublist.sort()
 
             # --- Iterate through particle scans and process files
             for scan_number in scan_number_list:
@@ -116,7 +109,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     processedData = h5py.File(processed_filepath, "a")
                     pdata = processedData.create_group(
                         'scan%s/particle%s' % (scan_number, particle_number))
-
+                    print('HERE WE GO!')
                     # --- FIRST WHITE LIGHT IMAGE ---
                     data_image = scan_analyzer.getGrayscaleImage(
                             'Infinity3_FirstWhiteLight_Image', datafile)
@@ -131,7 +124,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                             "Infinity3_First_Processed_Image", data=zimg)
                     pimg.attrs.create(
                             "timestamp", datetime.datetime.now().isoformat())
-
+        
                     # --- SECOND WHITE LIGHT IMAGE ---
                     data_image = scan_analyzer.getGrayscaleImage(
                             'Infinity3_SecondWhiteLight_Image', datafile)
@@ -147,32 +140,32 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                             "Infinity3_Second_Processed_Image", data=zimg)
                     pimg.attrs.create(
                             "timestamp", datetime.datetime.now().isoformat())
-
-#                    # --- LASER BEAM IMAGE ---
-#                    data_image = scan_analyzer.getGrayscaleImage(
-#                            'Infinity3_Laser_Beam_Image', datafile)
-#                    bias_image = scan_analyzer.getGrayscaleImage(
-#                            'Infinity3_Bias_Image', datafile)
-#                    img = scan_analyzer.processImage(data_image, bias_image)
-#                    zimg = scan_analyzer.reZeroImage(img)
-#                    pimg = pdata.create_dataset(
-#                            "Infinity3_Laser_Beam_Processed_Image", data=zimg)
-#                    pimg.attrs.create(
-#                            "timestamp", datetime.datetime.now().isoformat())
-#
-#                    # --- LASER BEAM IMAGE AT BACKGROUND LOCATION ---
-#                    data_image = scan_analyzer.getGrayscaleImage(
-#                            'Infinity3_Laser_Beam_Image_atBkgndLoc', datafile)
-#                    bias_image = scan_analyzer.getGrayscaleImage(
-#                            'Infinity3_Bias_Image', datafile)
-#                    img = scan_analyzer.processImage(data_image, bias_image)
-#                    zimg = scan_analyzer.reZeroImage(img)
-#                    pimg = pdata.create_dataset(
-#                          "Infinity3_Laser_Beam_Processed_Image_atBkgndLoc",
-#                          data=zimg)
-#                    pimg.attrs.create(
-#                            "timestamp", datetime.datetime.now().isoformat())
-
+        
+        #                    # --- LASER BEAM IMAGE ---
+        #                    data_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Laser_Beam_Image', datafile)
+        #                    bias_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Bias_Image', datafile)
+        #                    img = scan_analyzer.processImage(data_image, bias_image)
+        #                    zimg = scan_analyzer.reZeroImage(img)
+        #                    pimg = pdata.create_dataset(
+        #                            "Infinity3_Laser_Beam_Processed_Image", data=zimg)
+        #                    pimg.attrs.create(
+        #                            "timestamp", datetime.datetime.now().isoformat())
+        #
+        #                    # --- LASER BEAM IMAGE AT BACKGROUND LOCATION ---
+        #                    data_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Laser_Beam_Image_atBkgndLoc', datafile)
+        #                    bias_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Bias_Image', datafile)
+        #                    img = scan_analyzer.processImage(data_image, bias_image)
+        #                    zimg = scan_analyzer.reZeroImage(img)
+        #                    pimg = pdata.create_dataset(
+        #                          "Infinity3_Laser_Beam_Processed_Image_atBkgndLoc",
+        #                          data=zimg)
+        #                    pimg.attrs.create(
+        #                            "timestamp", datetime.datetime.now().isoformat())
+        
                     # --- RAMAN LASER ZERO ORDER ---
                     data_image = np.array(datafile['Raman_Laser_0Order_int'])
                     bias_image = np.array(datafile['Raman_Bias_0Order_int'])
@@ -188,7 +181,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     imgMin = zimg.min()
                     imgMax = zimg.max()
                     zimgCrop = (zimg[65:(data_image.shape[0]-68),
-                                     780:(data_image.shape[1]-770)])
+                                             780:(data_image.shape[1]-770)])
                     imgThumbIntegral = zimgCrop.sum()
                     # Find 10 max values
                     imgThumbMax = []
@@ -204,7 +197,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     pimg.attrs.create("maximum", imgMax)
                     pimg.attrs.create("integral", imgThumbIntegral)
                     pimg.attrs.create("average of 10 maxima", imgAvgMax)
-
+        
                     # --- RAMAN LASER SPECTRUM ---
                     data_image = np.array(datafile['Raman_Laser_Spectrum_int'])
                     bias_image = np.array(datafile['Raman_Bias_Spectrum_int'])
@@ -219,7 +212,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                             "timestamp", datetime.datetime.now().isoformat())
                     pimg.attrs.create(
                             "wavelengths", datafile['Raman_Laser_Spectrum_wl'])
-
+        
                     # --- RAMAN WHITE LIGHT ZERO ORDER ---
                     data_image = np.array(
                             datafile['Raman_White_Light_0Order_int'])
@@ -236,7 +229,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     imgMin = zimg.min()
                     imgMax = zimg.max()
                     zimgCrop = (zimg[65:(data_image.shape[0]-68),
-                                     780:(data_image.shape[1]-770)])
+                                             780:(data_image.shape[1]-770)])
                     imgThumbIntegral = zimgCrop.sum()
                     # Find 10 max values
                     imgThumbMax = []
@@ -252,7 +245,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     pimg.attrs.create("maximum", imgMax)
                     pimg.attrs.create("integral", imgThumbIntegral)
                     pimg.attrs.create("average of 10 maxima", imgAvgMax)
-
+        
                     # --- RAMAN WHITE LIGHT SPECTRUM ---
                     data_image = np.array(
                             datafile['Raman_White_Light_Spectrum_int'])
@@ -270,6 +263,163 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                             "timestamp", datetime.datetime.now().isoformat())
                     pimg.attrs.create(
                       "wavelengths", datafile['Raman_White_Light_Spectrum_wl'])
+        
+        # =============================================================================
+        # --- FIRST WHITE LIGHT IMAGE ---
+                    for i in range(0, 14):
+                        print('Time slot: ' + str(i))
+                        data_image = scan_analyzer.getGrayscaleImage(
+                                'Infinity3_FirstWhiteLight_Image_'+str(i), datafile)
+                        bias_image = scan_analyzer.getGrayscaleImage(
+                                'Infinity3_Bias_Image_'+str(i), datafile)
+                        background_image = scan_analyzer.getGrayscaleImage(
+                                'Infinity3_FirstBkgndWhiteLight_Image_'+str(i), datafile)
+                        img = scan_analyzer.processImage(
+                                data_image, bias_image, background_image)
+                        zimg = scan_analyzer.reZeroImage(img)
+                        pimg = pdata.create_dataset(
+                                "Infinity3_First_Processed_Image_"+str(i), data=zimg)
+                        pimg.attrs.create(
+                                "timestamp", datetime.datetime.now().isoformat())
+        
+                        # --- SECOND WHITE LIGHT IMAGE ---
+                        data_image = scan_analyzer.getGrayscaleImage(
+                                'Infinity3_SecondWhiteLight_Image_'+str(i), datafile)
+                        bias_image = scan_analyzer.getGrayscaleImage(
+                                'Infinity3_Bias_Image_'+str(i), datafile)
+                        background_image = scan_analyzer.getGrayscaleImage(
+                                'Infinity3_SecondWhiteLight_atBkgndLoc_Image_'+str(i),
+                                datafile)
+                        img = scan_analyzer.processImage(
+                                data_image, bias_image, background_image)
+                        zimg = scan_analyzer.reZeroImage(img)
+                        pimg = pdata.create_dataset(
+                                "Infinity3_Second_Processed_Image_"+str(i), data=zimg)
+                        pimg.attrs.create(
+                                "timestamp", datetime.datetime.now().isoformat())
+        
+        #                    # --- LASER BEAM IMAGE ---
+        #                    data_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Laser_Beam_Image', datafile)
+        #                    bias_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Bias_Image', datafile)
+        #                    img = scan_analyzer.processImage(data_image, bias_image)
+        #                    zimg = scan_analyzer.reZeroImage(img)
+        #                    pimg = pdata.create_dataset(
+        #                            "Infinity3_Laser_Beam_Processed_Image", data=zimg)
+        #                    pimg.attrs.create(
+        #                            "timestamp", datetime.datetime.now().isoformat())
+        #
+        #                    # --- LASER BEAM IMAGE AT BACKGROUND LOCATION ---
+        #                    data_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Laser_Beam_Image_atBkgndLoc', datafile)
+        #                    bias_image = scan_analyzer.getGrayscaleImage(
+        #                            'Infinity3_Bias_Image', datafile)
+        #                    img = scan_analyzer.processImage(data_image, bias_image)
+        #                    zimg = scan_analyzer.reZeroImage(img)
+        #                    pimg = pdata.create_dataset(
+        #                          "Infinity3_Laser_Beam_Processed_Image_atBkgndLoc",
+        #                          data=zimg)
+        #                    pimg.attrs.create(
+        #                            "timestamp", datetime.datetime.now().isoformat())
+        
+                        # --- RAMAN LASER ZERO ORDER ---
+                        data_image = np.array(datafile['Raman_Laser_0Order_int_'+str(i)])
+                        bias_image = np.array(datafile['Raman_Bias_0Order_int_'+str(i)])
+                        background_image = np.array(
+                                datafile['Raman_Laser_0Order_atBkgndLoc_int_'+str(i)])
+                        img = scan_analyzer.processAndor(
+                                data_image, bias_image, background_image)
+                        zimg = scan_analyzer.reZeroImage(img)
+                        pimg = pdata.create_dataset(
+                                "Raman_Laser_0Order_Processed_Image_"+str(i), data=zimg)
+                        pimg.attrs.create(
+                                "timestamp", datetime.datetime.now().isoformat())
+                        imgMin = zimg.min()
+                        imgMax = zimg.max()
+                        zimgCrop = (zimg[65:(data_image.shape[0]-68),
+                                                 780:(data_image.shape[1]-770)])
+                        imgThumbIntegral = zimgCrop.sum()
+                        # Find 10 max values
+                        imgThumbMax = []
+                        zimgCropMaxRemoved = [item for sublist in zimgCrop for item in sublist]
+                        for j in range(0, 10):
+                            index, value = max(enumerate(zimgCropMaxRemoved),
+                                               key=operator.itemgetter(1))
+                            imgThumbMax.append(value)
+                            del zimgCropMaxRemoved[index]
+                        imgAvgMax = np.mean(imgThumbMax)
+                        # Save calculated values
+                        pimg.attrs.create("minimum", imgMin)
+                        pimg.attrs.create("maximum", imgMax)
+                        pimg.attrs.create("integral", imgThumbIntegral)
+                        pimg.attrs.create("average of 10 maxima", imgAvgMax)
+        
+                        # --- RAMAN LASER SPECTRUM ---
+                        data_image = np.array(datafile['Raman_Laser_Spectrum_int_'+str(i)])
+                        bias_image = np.array(datafile['Raman_Bias_Spectrum_int_'+str(i)])
+                        background_image = np.array(
+                                datafile['Raman_Laser_Spectrum_atBkgndLoc_int_'+str(i)])
+                        img = scan_analyzer.processAndor(
+                                data_image, bias_image, background_image)
+                        zimg = scan_analyzer.reZeroImage(img)
+                        pimg = pdata.create_dataset(
+                                "Raman_Laser_Spectrum_Processed_Image_"+str(i), data=zimg)
+                        pimg.attrs.create(
+                                "timestamp", datetime.datetime.now().isoformat())
+                        pimg.attrs.create(
+                                "wavelengths", datafile['Raman_Laser_Spectrum_wl_'+str(i)])
+        
+                        # --- RAMAN WHITE LIGHT ZERO ORDER ---
+                        data_image = np.array(
+                                datafile['Raman_White_Light_0Order_int_'+str(i)])
+                        bias_image = np.array(datafile['Raman_Bias_0Order_int_'+str(i)])
+                        background_image = np.array(
+                                datafile['Raman_White_Light_Bkgnd_0Order_int_'+str(i)])
+                        img = scan_analyzer.processAndor(
+                                data_image, bias_image, background_image)
+                        zimg = scan_analyzer.reZeroImage(img)
+                        pimg = pdata.create_dataset(
+                            "Raman_White_Light_0Order_Processed_Image_"+str(i), data=zimg)
+                        pimg.attrs.create(
+                                "timestamp", datetime.datetime.now().isoformat())
+                        imgMin = zimg.min()
+                        imgMax = zimg.max()
+                        zimgCrop = (zimg[65:(data_image.shape[0]-68),
+                                                 780:(data_image.shape[1]-770)])
+                        imgThumbIntegral = zimgCrop.sum()
+                        # Find 10 max values
+                        imgThumbMax = []
+                        zimgCropMaxRemoved = [item for sublist in zimgCrop for item in sublist]
+                        for j in range(0, 10):
+                            index, value = max(enumerate(zimgCropMaxRemoved),
+                                               key=operator.itemgetter(1))
+                            imgThumbMax.append(value)
+                            del zimgCropMaxRemoved[index]
+                        imgAvgMax = np.mean(imgThumbMax)
+                        # Save calculated values
+                        pimg.attrs.create("minimum", imgMin)
+                        pimg.attrs.create("maximum", imgMax)
+                        pimg.attrs.create("integral", imgThumbIntegral)
+                        pimg.attrs.create("average of 10 maxima", imgAvgMax)
+        
+                        # --- RAMAN WHITE LIGHT SPECTRUM ---
+                        data_image = np.array(
+                                datafile['Raman_White_Light_Spectrum_int_'+str(i)])
+                        bias_image = np.array(
+                                datafile['Raman_Bias_Spectrum_int_'+str(i)])
+                        background_image = np.array(
+                                datafile['Raman_White_Light_Bkgnd_Spectrum_int_'+str(i)])
+                        img = scan_analyzer.processAndor(
+                                data_image, bias_image, background_image)
+                        zimg = scan_analyzer.reZeroImage(img)
+                        pimg = pdata.create_dataset(
+                                "Raman_White_Light_Spectrum_Processed_Image_"+str(i),
+                                data=zimg)
+                        pimg.attrs.create(
+                                "timestamp", datetime.datetime.now().isoformat())
+                        pimg.attrs.create(
+                          "wavelengths", datafile['Raman_White_Light_Spectrum_wl_'+str(i)])
 
             processedData.close()
             data.close()
@@ -301,20 +451,8 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                 shutil.rmtree(processed_filepath)
                 time.sleep(1)  # Wait for permissions to be freed up
                 shutil.os.mkdir(processed_filepath)
-                shutil.os.mkdir(processed_filepath+'/spots')
-                shutil.os.mkdir(processed_filepath+'/rings')
-                shutil.os.mkdir(processed_filepath+'/junks')
-                shutil.os.mkdir(processed_filepath+'/asymmetrics')
-                shutil.os.mkdir(processed_filepath+'/dims')
-                shutil.os.mkdir(processed_filepath+'/UNCATEGORIZED')
             except OSError:
                 shutil.os.mkdir(processed_filepath)
-                shutil.os.mkdir(processed_filepath+'/spots')
-                shutil.os.mkdir(processed_filepath+'/rings')
-                shutil.os.mkdir(processed_filepath+'/junks')
-                shutil.os.mkdir(processed_filepath+'/asymmetrics')
-                shutil.os.mkdir(processed_filepath+'/dims')
-                shutil.os.mkdir(processed_filepath+'/UNCATEGORIZED')
 
             scan_analyzer = ParticleScanAnalysis()
             data = scan_analyzer.getScanDataFile(filepath)
@@ -330,66 +468,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                         if pname.startswith('particle'):
                             particle_num_sublist.append(int(pname[8:]))
                     particle_number_list.append(particle_num_sublist)
-            
-            for sublist in particle_number_list:
-                sublist.sort()
-            
-            # Find range of counts to which images shall be scaled:
-            pixel_max_list_Raman0Order = []
-            pixel_max_list_White0Order = []
-            print("Finding colourbar scaling parameters...")
-            for n, scan_number in enumerate(scan_number_list):
-                pixel_max_sublist_Raman0Order = []
-                pixel_max_sublist_White0Order = []
-                for particle_number in particle_number_list[n]:
-                    datafile = scan_analyzer.getProcessedScanDataSet(
-                                            data, scan_number, particle_number)
-                    pixel_max_sublist_Raman0Order.append(
-                            datafile["Raman_Laser_0Order_Processed_Image"].attrs['average of 10 maxima'])
-                    pixel_max_sublist_White0Order.append(
-                            datafile["Raman_White_Light_0Order_Processed_Image"].attrs['average of 10 maxima'])
-                pixel_max_list_Raman0Order.append(pixel_max_sublist_Raman0Order)
-                pixel_max_list_White0Order.append(pixel_max_sublist_White0Order)
-                
-            pixel_max_list_Raman0Order_r = list(pixel_max_list_Raman0Order)
-            pixel_max_list_White0Order_r = list(pixel_max_list_White0Order)
-            Raman0OrderMax = []
-            White0OrderMax = []
-            for n, scan_number in enumerate(scan_number_list):
-                for i in range(0, 10):
-                    index, value = max(enumerate(pixel_max_list_Raman0Order_r[n]),
-                                       key=operator.itemgetter(1))
-                    Raman0OrderMax.append(value)
-                    del pixel_max_list_Raman0Order_r[n][index]
-                    index, value = max(enumerate(pixel_max_list_White0Order_r[n]),
-                                       key=operator.itemgetter(1))
-                    White0OrderMax.append(value)
-                    del pixel_max_list_White0Order_r[n][index]
-            Raman0OrderAvgMax = np.mean(Raman0OrderMax)
-            White0OrderAvgMax = np.mean(White0OrderMax)
-
-            total_particle_count = 131
-            rings = [7, 18, 22, 24, 31, 39, 46, 51, 56, 69, 78, 80, 81, 82, 86, 117, 125]
-            dims = []
-            asymmetrics = [10, 21, 28, 29, 35, 45, 49, 57, 62, 66, 68, 75, 77, 84, 98, 99, 105, 106, 116, 120]
-            junks = [3, 5, 13, 15, 16, 17, 25, 36, 48, 50, 70, 71, 74, 85, 87, 88, 93, 94, 104, 109, 118, 122, 123, 124, 131,
-            	1, 6, 20, 23, 32, 34, 38, 47, 52, 53, 54, 55, 59, 60, 83, 89, 110, 112, 113, 114, 127, 128, 129]
-            spots = [x for x in range(0, total_particle_count) if x not in rings+dims+asymmetrics+junks]
-            
-            identities = []
-            for i in range(0, total_particle_count):
-                if i in spots:
-                    identities.append('spots')
-                elif i in junks:
-                    identities.append('junks')
-                elif i in rings:
-                    identities.append('rings')
-                elif i in asymmetrics:
-                    identities.append('asymmetrics')
-                elif i in dims:
-                    identities.append('dims')
-                else:
-                    identities.append('UNCATEGORIZED')
 
             # OVERRIDE IF NECESSARY
             # scan_number_list = [3]
@@ -418,9 +496,9 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                        cmap='gray')
                     plt.axis('equal')
                     ax.set_adjustable('box-forced')
-                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-                                '/scan' + str(scan_number) +
-                                'particle' + str(particle_number) +
+                    fig.savefig(processed_filepath +
+                                '\scan' + str(scan_number) +
+                                'particle' + str(particle_number) + 'time!!' +
                                 '_Inf3.png',
                                 bbox_inches='tight')
                     plt.close()
@@ -435,14 +513,12 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                        aspect='auto',
                        extent=[700, data_image.shape[1]-700,
                                0, data_image.shape[0]],
-                       cmap='gray',
-                       vmin=0,
-                       vmax=Raman0OrderAvgMax)
+                       cmap='gray')
                     plt.axis('equal')
                     ax.set_adjustable('box-forced')
-                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-                                '/scan' + str(scan_number) +
-                                'particle' + str(particle_number) +
+                    fig.savefig(processed_filepath +
+                                '\scan' + str(scan_number) +
+                                'particle' + str(particle_number) + 'time!!' +
                                 '_Raman0Order.png',
                                 bbox_inches='tight')
                     plt.close()
@@ -457,14 +533,12 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                        aspect='auto',
                        extent=[700, data_image.shape[1]-700,
                                0, data_image.shape[0]],
-                       cmap='gray',
-                       vmin=0,
-                       vmax=White0OrderAvgMax)
+                       cmap='gray')
                     plt.axis('equal')
                     ax.set_adjustable('box-forced')
-                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-                                '/scan' + str(scan_number) +
-                                'particle' + str(particle_number) +
+                    fig.savefig(processed_filepath +
+                                '\scan' + str(scan_number) +
+                                'particle' + str(particle_number) + 'time!!' +
                                 '_DF0Order.png',
                                 bbox_inches='tight')
                     plt.close()
@@ -490,14 +564,14 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     plt.minorticks_on()
                     minorLocator = MultipleLocator(10)
                     ax.yaxis.set_minor_locator(minorLocator)
-                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-                                '/scan' + str(scan_number) +
-                                'particle' + str(particle_number) +
+                    fig.savefig(processed_filepath +
+                                '\scan' + str(scan_number) +
+                                'particle' + str(particle_number) + 'time!!' +
                                 '_RamanSpectrum.png',
                                 bbox_inches='tight')
                     plt.close()
-
-                    # --- DARK FIELD SPECTRUM IMAGE ---
+                    
+                     # --- DARK FIELD SPECTRUM IMAGE ---
                     dset = datafile['Raman_White_Light_Spectrum_Processed_Image']
                     data_image = np.array(dset)
                     fig = plt.figure()
@@ -518,12 +592,129 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     plt.minorticks_on()
                     minorLocator = MultipleLocator(10)
                     ax.yaxis.set_minor_locator(minorLocator)
-                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-                                '/scan' + str(scan_number) +
-                                'particle' + str(particle_number) +
+                    fig.savefig(processed_filepath +
+                                '\scan' + str(scan_number) +
+                                'particle' + str(particle_number) + 'time!!' +
                                 '_DFSpectrum.png',
                                 bbox_inches='tight')
                     plt.close()
+                    
+                    for i in range(0, 14):
+                        # --- FIRST WHITE LIGHT IMAGE ---
+                        plt.ioff()  # No interactive plots. To suppress plot window
+                        data_image = np.array(
+                                datafile['Infinity3_First_Processed_Image_'+str(i)])
+                        fig = plt.figure()
+                        ax = plt.subplot(111)
+                        ax.imshow(
+                           data_image,
+                           aspect='auto',
+                           extent=[0, data_image.shape[1], 0, data_image.shape[0]],
+                           cmap='gray')
+                        plt.axis('equal')
+                        ax.set_adjustable('box-forced')
+                        fig.savefig(processed_filepath +
+                                    '\scan' + str(scan_number) +
+                                    'particle' + str(particle_number) + 'time' + str(i).zfill(2) +
+                                    '_Inf3.png',
+                                    bbox_inches='tight')
+                        plt.close()
+    
+                        # --- RAMAN LASER 0 ORDER IMAGE ---
+                        data_image = np.array(
+                                datafile['Raman_Laser_0Order_Processed_Image_'+str(i)])
+                        fig = plt.figure()
+                        ax = plt.subplot(111)
+                        ax.imshow(
+                           data_image[:, 700:(data_image.shape[1]-700)],
+                           aspect='auto',
+                           extent=[700, data_image.shape[1]-700,
+                                   0, data_image.shape[0]],
+                           cmap='gray')
+                        plt.axis('equal')
+                        ax.set_adjustable('box-forced')
+                        fig.savefig(processed_filepath +
+                                    '\scan' + str(scan_number) +
+                                    'particle' + str(particle_number) + 'time' + str(i).zfill(2) +
+                                    '_Raman0Order.png',
+                                    bbox_inches='tight')
+                        plt.close()
+    
+                        # --- RAMAN DF 0 ORDER IMAGE ---
+                        data_image = np.array(
+                            datafile['Raman_White_Light_0Order_Processed_Image_'+str(i)])
+                        fig = plt.figure()
+                        ax = plt.subplot(111)
+                        ax.imshow(
+                           data_image[:, 700:(data_image.shape[1]-700)],
+                           aspect='auto',
+                           extent=[700, data_image.shape[1]-700,
+                                   0, data_image.shape[0]],
+                           cmap='gray')
+                        plt.axis('equal')
+                        ax.set_adjustable('box-forced')
+                        fig.savefig(processed_filepath +
+                                    '\scan' + str(scan_number) +
+                                    'particle' + str(particle_number) + 'time' + str(i).zfill(2) +
+                                    '_DF0Order.png',
+                                    bbox_inches='tight')
+                        plt.close()
+    
+                        # --- RAMAN LASER SPECTRUM IMAGE ---
+                        dset = datafile['Raman_Laser_Spectrum_Processed_Image_'+str(i)]
+                        data_image = np.array(dset)
+                        fig = plt.figure()
+                        ax = plt.subplot(111)
+                        ax.imshow(
+                           data_image,
+                           aspect='auto',
+                           extent=[0, data_image.shape[1], 0, data_image.shape[0]],
+                           cmap='gray')
+                        plt.axis('equal')
+                        plt.xticks(np.linspace(0, data_image.shape[1], 8),
+                                   np.around(
+                                       np.linspace(
+                                           dset.attrs['wavelengths'][0],
+                                           dset.attrs['wavelengths'][-1], 8),
+                                       decimals=1))
+                        ax.set_adjustable('box-forced')
+                        plt.minorticks_on()
+                        minorLocator = MultipleLocator(10)
+                        ax.yaxis.set_minor_locator(minorLocator)
+                        fig.savefig(processed_filepath +
+                                    '\scan' + str(scan_number) +
+                                    'particle' + str(particle_number) + 'time' + str(i).zfill(2) +
+                                    '_RamanSpectrum.png',
+                                    bbox_inches='tight')
+                        plt.close()
+                        
+                         # --- DARK FIELD SPECTRUM IMAGE ---
+                        dset = datafile['Raman_White_Light_Spectrum_Processed_Image_'+str(i)]
+                        data_image = np.array(dset)
+                        fig = plt.figure()
+                        ax = plt.subplot(111)
+                        ax.imshow(
+                           data_image,
+                           aspect='auto',
+                           extent=[0, data_image.shape[1], 0, data_image.shape[0]],
+                           cmap='gray')
+                        plt.axis('equal')
+                        plt.xticks(np.linspace(0, data_image.shape[1], 8),
+                                   np.around(
+                                       np.linspace(
+                                           dset.attrs['wavelengths'][0],
+                                           dset.attrs['wavelengths'][-1], 8),
+                                       decimals=1))
+                        ax.set_adjustable('box-forced')
+                        plt.minorticks_on()
+                        minorLocator = MultipleLocator(10)
+                        ax.yaxis.set_minor_locator(minorLocator)
+                        fig.savefig(processed_filepath +
+                                    '\scan' + str(scan_number) +
+                                    'particle' + str(particle_number) + 'time' + str(i).zfill(2) +
+                                    '_DFSpectrum.png',
+                                    bbox_inches='tight')
+                        plt.close()
 
             data.close()
             print("Finished processing " + filepath.split('/')[-1] + ' !')
@@ -628,9 +819,7 @@ class ParticleScanAnalysis:
             background_image = np.full_like(data_image, 0)
         if white_reference_image is None:
             white_reference_image = np.full_like(data_image, 255)
-            # processed_image = ((data_image - bias_image - background_image) /
-            #                     (white_reference_image - background_image))
-        processed_image = ((data_image - background_image) /
+        processed_image = ((data_image - bias_image - background_image) /
                            (white_reference_image - background_image))
         return processed_image
 
@@ -639,8 +828,7 @@ class ParticleScanAnalysis:
             bias_image = np.full_like(data_image, 0)
         if background_image is None:
             background_image = np.full_like(data_image, 0)
-        # processed_image = data_image - bias_image - background_image
-        processed_image = data_image - background_image
+        processed_image = data_image - bias_image - background_image
         return processed_image
 
     def getScanDataFile(self, filepath):
@@ -672,8 +860,7 @@ class ParticleScanAnalysis:
         return dataset
 
     def reZeroImage(self, image):
-        # reZeroedImage = image - image.min()
-        reZeroedImage = np.asarray(image).clip(min=0)
+        reZeroedImage = image - image.min()
         return reZeroedImage
 
     def processRadialProfile(self, data, centre):

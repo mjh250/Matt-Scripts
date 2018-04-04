@@ -69,15 +69,16 @@ class FringeVisibilityAnalysis:
 if __name__ == '__main__':
     scan_analyzer = FringeVisibilityAnalysis()
     filepath = ("C:\\Users\\mjh250\\Documents\\Local mjh250\\mjh250\\"
-                "2017_10_20\\Supercontinuum650to650nm\\CrossectionsAt70\\")
+                "2018_02_04\\Cropped\\Crossections\\")
     dataa = []
     datab = []
     datac = []
     data = []
-    micrometers = [1700, 1800, 1900, 2000, 2100, 2200]
+    micrometers = [18475, 1850, 18525, 1855, 18575, 1860, 18625, 1865, 18675,
+                   1870, 18725, 1875, 18775]
     trimmedData = []
-    dataCenterPixel = 800
-    dataPixelWidth = 75
+    dataCenterPixel = 50
+    dataPixelWidth = 50
     upperEnvelopes = []
     lowerEnvelopes = []
     visibilityArrays = []
@@ -85,9 +86,9 @@ if __name__ == '__main__':
     j = 1
 
     for i in micrometers:
-        dataa.append(np.loadtxt(filepath+"Micrometer"+str(i)+"microns_a.txt"))
-        datab.append(np.loadtxt(filepath+"Micrometer"+str(i)+"microns_b.txt"))
-        datac.append(np.loadtxt(filepath+"Micrometer"+str(i)+"microns_c.txt"))
+        dataa.append(np.loadtxt(filepath+str(i)+"a.txt"))
+        datab.append(np.loadtxt(filepath+str(i)+"b.txt"))
+        datac.append(np.loadtxt(filepath+str(i)+"c.txt"))
         data.append(np.mean([dataa[-1], datab[-1], datac[-1]], axis=0))
         upperEnvelopes.append(scan_analyzer.envelope(
                 data[-1][dataCenterPixel-dataPixelWidth:
@@ -107,7 +108,8 @@ if __name__ == '__main__':
         plt.plot(lowerEnvelopes[-1])
         j = j + 1
 
-    x = ar(micrometers)
+    x = ar([1847.5, 1850, 1852.5, 1855, 1857.5, 1860, 1862.5, 1865, 1867.5,
+            1870, 1872.5, 1875, 1877.5])
     y = ar(visibility)
     yweight = ar(visibility/sum(visibility))
     n = len(x)                               # the number of data
