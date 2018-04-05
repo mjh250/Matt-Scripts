@@ -12,6 +12,7 @@ from nplab.instrument.stage.prior import ProScan
 from nplab.instrument.shutter.thorlabs_sc10 import ThorLabsSC10
 from nplab.instrument.shutter.BX51_uniblitz import Uniblitz
 from nplab.instrument.spectrometer.shamdor import Shamdor
+import nplab.datafile as df
 from particle_tracking_app.particle_tracking_wizard import TrackingWizard
 import numpy as np
 import datetime
@@ -19,9 +20,9 @@ import time
 
 
 HSSpeed = 2
-andor_exposure_time_0Order = 5
+andor_exposure_time_0Order =5
 andor_exposure_time_spec = andor_exposure_time_0Order*3
-donut_z_offset = -0.0  # z offset to move focus to the donut mode
+donut_z_offset = 0  # z offset to move focus to the donut mode
 centre_wavelength = 675
 
 # Set up camera with click to move stage control
@@ -155,11 +156,27 @@ def TakeAndorSpec(imageName="Raman_Bias_Spectrum"):
     # rint.attrs.create("description", raman.scan_desc)
 
 
+def TakeOOpticsSpec(imageName="OceanOptics_DF_Spectrum"):
+    spectrum = spectrometer.read_processed_spectrum()
+    wavelengths = spectrometer.read_wavelengths()
+    rint = wizard.particle_group.create_dataset(imageName+"_int",
+                                                data=spectrum)
+    wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
+
+    rint.attrs.create("Integration time", spectrometer.integration_time)
+
+
 def MoveToBackgroundLoc():
     # Move stage slightly to take background. (MAKE THIS ACTUALLY LOOK
     # FOR A SPOT WITH NO PARTICLES) TODO !!!!!!!!!!!!!!!!
     # For now, move the stage by 3 microns to a (hopefully) empty area
     CWL.stage.move_rel([3, 0, 0])
+    
+def ReturnFromBackgroundLoc():
+    # Move stage slightly to return from background.
+    # TODO: make this smarter
+    # For now, move the stage by -3 microns to return to particle
+    CWL.stage.move_rel([-3, 0, 0])
 
 
 def Autofocus(useThumbnail=True):
@@ -171,12 +188,37 @@ def CentreOnFeature(NP_image=None, ignore_z_pos=True):
         CWL.move_to_feature(NP_image, ignore_z_pos)
 
 
-def StudyParticleEmissionProfile():
+def ParticleEmissionProfileTimeScan(scan_number=0, particle_number=0):
+    NP_image_focused = CWL.thumb_image()  # Assumes initial alignment good
+    for particle_subnumber in range(0, 15):
+        print('====================================')
+        print('Doing time scan iteration number ' + str(particle_subnumber) + '.')
+        print('====================================')
+        wizard.subparticle_group = wizard.particle_group.create_group(
+                            'SubParticle_' + str(particle_subnumber))  # THIS LINE CREATES GROUP, BUT DATA NOT GETTING STORED THERE NEED TO CHANGE EACH FUNTION THAT STORES DATA?
+        StudyParticleEmissionProfile(NP_image_focused)
+
+
+def ManualParticleEmissionProfileTimeScan(scan_number=0):
+    NP_image_focused = CWL.thumb_image()  # Assumes initial alignment good
+    wizard.scan_group = wizard.data_file.create_group(
+                                    'ParticleScannerScan_' + str(scan_number))
+    for particle_number in range(0, 15):
+        print('====================================')
+        print('Doing time scan iteration number ' + str(particle_number) + '.')
+        print('====================================')
+        wizard.particle_group = wizard.scan_group.create_group(
+                                'Particle_' + str(particle_number))
+        StudyParticleEmissionProfile(NP_image_focused)
+
+
+def StudyParticleEmissionProfile(NP_image_focused=None):
     OpenWhiteLightShutter()
     SetShamrockSlit(2000)
-    NP_image_unfocused = CWL.thumb_image()
+    #NP_image_unfocused = CWL.thumb_image()
     Autofocus()
-    NP_image_focused = CWL.thumb_image()
+    if NP_image_focused is None:
+        NP_image_focused = CWL.thumb_image()
     CentreOnFeature(NP_image_focused)
     CloseWhiteLightShutter()
     TakeInfinity3Image("Infinity3_Bias_Image")
@@ -189,6 +231,7 @@ def StudyParticleEmissionProfile():
     TakeInfinity3Image("Infinity3_FirstWhiteLight_Image")
     TakeAndor0Order("Raman_White_Light_0Order")
     TakeAndorSpec("Raman_White_Light_Spectrum")
+    TakeOOpticsSpec()
     Autofocus()
     CentreOnFeature(NP_image_focused)
     ShiftFocus(donut_z_offset)
@@ -219,5 +262,6 @@ def StudyParticleEmissionProfile():
     TakeInfinity3Image("Infinity3_SecondWhiteLight_atBkgndLoc_Image")
     CloseLaserShutter()
     OpenWhiteLightShutter()
-    CentreOnFeature(NP_image_unfocused, ignore_z_pos=False)
-    return
+    ReturnFromBackgroundLoc()
+    #CentreOnFeature(NP_image_focused)
+    #CentreOnFeature(NP_image_unfocused, ignore_z_pos=False)
