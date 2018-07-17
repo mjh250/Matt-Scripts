@@ -7,6 +7,7 @@ Created on Wed Mar 07 15:43:54 2018
 
 import shutil
 import time
+import csv
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
@@ -14,8 +15,8 @@ from ParticleScanAnalysis.ParticleScanAnalysis import ParticleScanAnalysis
 
 if __name__ == '__main__':
     print("Initializing...")
-    filepaths = ["C:\\Users\\mjh250\\Documents\\Local mjh250\\mjh250\\2017_12_14\\BackgroundSubtracted.hdf5"]
-    processed_filepath = "C:\\Users\\mjh250\\Documents\\Local mjh250\\mjh250\\2017_12_14\\Counts"
+    filepaths = ["C:\\Users\\mjh250\\Documents\\Local mjh250\\mjh250\\2018_02_16\\BackgroundSubtracted.hdf5"]
+    processed_filepath = "C:\\Users\\mjh250\\Documents\\Local mjh250\\mjh250\\2018_02_16\\Counts"
     if len(filepaths) > 1:
         processed_filepaths = [processed_filepath + str(i)
                                for i in range(len(filepaths))]
@@ -78,13 +79,13 @@ if __name__ == '__main__':
                 # --- RAMAN LASER 0 ORDER IMAGE ---
                 data_image = np.array(
                         datafile['Raman_Laser_0Order_Processed_Image'])
-                intCountsDFSublist.append(datafile['Raman_Laser_0Order_Processed_Image'].attrs['integral'])
+                intCountsRamanSublist.append(datafile['Raman_Laser_0Order_Processed_Image'].attrs['integral'])
                 avgMaxCountsRamanSublist.append(datafile['Raman_Laser_0Order_Processed_Image'].attrs['average of 10 maxima'])
 
                 # --- RAMAN DF 0 ORDER IMAGE ---
                 data_image = np.array(
                     datafile['Raman_White_Light_0Order_Processed_Image'])
-                intCountsRamanSublist.append(datafile['Raman_White_Light_0Order_Processed_Image'].attrs['integral'])
+                intCountsDFSublist.append(datafile['Raman_White_Light_0Order_Processed_Image'].attrs['integral'])
                 avgMaxCountsDFSublist.append(datafile['Raman_White_Light_0Order_Processed_Image'].attrs['average of 10 maxima'])
             intCountsDF.append(intCountsDFSublist)
             intCountsRaman.append(intCountsRamanSublist)
@@ -99,12 +100,15 @@ if __name__ == '__main__':
     #plt.show()
 
     # indices of particles that are:
-    total_particle_count = 131
-    rings = [7, 18, 22, 24, 31, 39, 46, 51, 56, 69, 78, 80, 81, 82, 86, 117, 125]
-    dims = []
-    asymmetrics = [10, 21, 28, 29, 35, 45, 49, 57, 62, 66, 68, 75, 77, 84, 98, 99, 105, 106, 116, 120]
-    junks = [3, 5, 13, 15, 16, 17, 25, 36, 48, 50, 70, 71, 74, 85, 87, 88, 93, 94, 104, 109, 118, 122, 123, 124, 131,
-    	1, 6, 20, 23, 32, 34, 38, 47, 52, 53, 54, 55, 59, 60, 83, 89, 110, 112, 113, 114, 127, 128, 129]
+    total_particle_count = 152
+    rings = [39, 42, 52, 54, 58, 64, 72, 87, 90, 94, 102, 109, 111, 123,
+             128, 129]
+    dims = [3, 9, 18, 19, 21, 29, 48, 71, 106, 113, 126, 142]
+    asymmetrics = [22, 24, 70, 89, 100, 103, 114, 133, 140, 141, 145]
+    junks = [1, 2, 4, 5, 7, 10, 16, 17, 20, 25, 27, 32, 33, 35, 38, 41,
+             45, 49, 50, 55, 56, 63, 66, 67, 73, 74, 75, 76, 77, 80, 81, 82,
+             83, 84, 85, 88, 95, 96, 98, 101, 104, 115, 117, 125, 130, 131, 132, 134,
+             135, 136, 137, 138, 139, 143, 144, 146, 147, 148, 149, 150, 151]
     spots = [x for x in range(0, total_particle_count) if x not in rings+dims+asymmetrics+junks]
 
     ringCountsDF = [intCountsDF[0][x] for x in rings]
@@ -202,7 +206,7 @@ if __name__ == '__main__':
                ('Dark field', 'Raman'),
                fontsize=30)
     plt.yticks(fontsize=30)
-    plt.legend(fontsize=30, loc=3)
+    plt.legend(fontsize=30)
 
     # plt.tight_layout()
     plt.grid()
@@ -210,4 +214,15 @@ if __name__ == '__main__':
     plt.draw()
     plt.show()
     
+    print('Writing counts to csv.')
+    with open('C:\\Users\\mjh250\\Documents\\Local mjh250\\mjh250\\2018_02_16\\Counts\\MaxCounts.txt', 'wb') as myfile:
+        wr = csv.writer(myfile, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+        wr.writerow([np.mean(ringMaxCountsDF), np.mean(spotMaxCountsDF), np.mean(asymmetricMaxCountsDF), np.mean(dimMaxCountsDF)])
+        wr.writerow([np.mean(ringMaxCountsRaman), np.mean(spotMaxCountsRaman), np.mean(asymmetricMaxCountsRaman), np.mean(dimMaxCountsRaman)])
+
+    with open('C:\\Users\\mjh250\\Documents\\Local mjh250\\mjh250\\2018_02_16\\Counts\\IntegratedCounts.txt', 'wb') as myfile:
+        wr = csv.writer(myfile, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+        wr.writerow([np.mean(ringCountsDF), np.mean(spotCountsDF), np.mean(asymmetricCountsDF), np.mean(dimCountsDF)])
+        wr.writerow([np.mean(ringCountsRaman), np.mean(spotCountsRaman), np.mean(asymmetricCountsRaman), np.mean(dimCountsRaman)])
+
     print('All done!')

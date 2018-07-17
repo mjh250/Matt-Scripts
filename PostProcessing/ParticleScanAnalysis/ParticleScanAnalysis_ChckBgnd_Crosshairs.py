@@ -3,7 +3,7 @@
 Created on Thu Aug 03 16:33:43 2017
 
 @author: mjh250
-"""
+""" 
 
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QApplication
@@ -19,6 +19,12 @@ import window
 import shutil
 import time
 import operator
+from scipy import ndimage
+import cv2
+
+
+sys.path.insert(0,"C:/Users/mjh250/Documents/Local mjh250/mjh250/Matt Scripts/PostProcessing/From Ilya")
+from ShapeAnalysis import ShapeAnalysis
 
 
 class MainDialog(QMainWindow, window.Ui_MainWindow):
@@ -62,6 +68,11 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
 
     def btnRun_clicked(self):
         print("Initializing...")
+        badBgndThreshold = 6.75e+06
+        yBotCrop = 65
+        yTopCrop = 68
+        xLeftCrop = 780
+        xRightCrop = 770
         filepaths = self.txtScanDataFilepath.text().split(', ')
         processed_filepath = self.txtOutputFilepath.text()
         if len(filepaths) > 1:
@@ -85,16 +96,16 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
             print("Preparing list of particles...")
             scan_number_list = []
             particle_number_list = []
-            for sname in data['particleScans']:
-#            for sname in data:
-#                if sname.startswith('ParticleScannerScan_'):
-                if sname.startswith('scan'):
+#            for sname in data['particleScans']:
+            for sname in data:
+                if sname.startswith('ParticleScannerScan_'):
+#                if sname.startswith('scan'):
                     scan_number_list.append(len(scan_number_list))
                     particle_num_sublist = []
-#                    for pname in data[sname]:
-                    for pname in data['particleScans/'+sname]:
-#                        if pname.startswith('Particle_'):
-                        if pname.startswith('scan'):
+                    for pname in data[sname]:
+#                    for pname in data['particleScans/'+sname]:
+                        if pname.startswith('Particle_'):
+#                        if pname.startswith('scan'):
                             particle_num_sublist.append(
                                                     len(particle_num_sublist))
                     particle_number_list.append(particle_num_sublist)
@@ -104,6 +115,9 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                 sublist.sort()
 
             # --- Iterate through particle scans and process files
+            old_background_image = None
+            current_bgnd_particle_number = None
+            rmn0_bad_bgnd_particle_list = []
             for scan_number in scan_number_list:
                 for particle_number in particle_number_list[scan_number]:
                     # --- Print name of file being analyzed to track progress
@@ -176,25 +190,59 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     # --- RAMAN LASER ZERO ORDER ---
                     data_image = np.array(datafile['Raman_Laser_0Order_int'])
                     bias_image = np.array(datafile['Raman_Bias_0Order_int'])
+                    
+                    # Find a good background image
                     background_image = np.array(
                             datafile['Raman_Laser_0Order_atBkgndLoc_int'])
+                    if old_background_image is None:
+                        old_background_image = background_image
+                        current_bgnd_particle_number = particle_number
+                        
+                    bgndCrop = (background_image[yBotCrop:(data_image.shape[0]-yTopCrop),
+                                     xLeftCrop:(data_image.shape[1]-xRightCrop)])
+                    oldBgndCrop = (old_background_image[yBotCrop:(data_image.shape[0]-yTopCrop),
+                                     xLeftCrop:(data_image.shape[1]-xRightCrop)])
+                    bgndSum = bgndCrop.sum()
+                    oldbgndSum = oldBgndCrop.sum()
+                    
+                    if ((bgndSum > badBgndThreshold) and not (oldbgndSum > badBgndThreshold)):
+                        print("Bad background image (Count sum = " + str(bgndSum) + "), using a previous one.")
+                        background_image = old_background_image
+                        rmn0_bad_bgnd_particle_list.append(particle_number)
+                    elif (bgndSum > badBgndThreshold):
+                        print("Bad background image (Count sum = " + str(bgndSum) + "), searching for a good one.")
+                        found = False
+                        for pn in range(1,len(particle_number_list[scan_number])-particle_number):
+                            print("Looking forward by " + str(pn) + " particles for a good background.")
+                            tmp_datafile = scan_analyzer.getScanDataSetGeneral(
+                                            data, scan_number, particle_number+pn)
+                            tmp_background_image = np.array(tmp_datafile['Raman_Laser_0Order_atBkgndLoc_int'])
+                            tmpBgndCrop = (tmp_background_image[yBotCrop:(data_image.shape[0]-yTopCrop),
+                                     xLeftCrop:(data_image.shape[1]-xRightCrop)])
+                            if (tmpBgndCrop.sum() < badBgndThreshold):
+                                found = True
+                                background_image = tmp_background_image
+                                current_bgnd_particle_number = particle_number+pn
+                                break
+                        rmn0_bad_bgnd_particle_list.append(particle_number)
+                        if found is False:
+                            print("WARNING: Could not find a suitable background image!")
+                            
+                    if oldbgndSum > badBgndThreshold:
+                        old_background_image = background_image
+                        current_bgnd_particle_number = particle_number
+                        
+                    # Process image
                     img = scan_analyzer.processAndor(
                             data_image, bias_image, background_image)
                     zimg = scan_analyzer.reZeroImage(img)
                     imgMin = zimg.min()
                     imgMax = zimg.max()
-                    zimgCrop = (zimg[65:(data_image.shape[0]-68),
-                                     780:(data_image.shape[1]-770)])
+                    zimgCrop = (zimg[yBotCrop:(data_image.shape[0]-yTopCrop),
+                                     xLeftCrop:(data_image.shape[1]-xRightCrop)])
                     imgThumbIntegral = zimgCrop.sum()
                     # Find 10 max values
-                    imgThumbMax = []
-                    zimgCropMaxRemoved = [item for sublist in zimgCrop for item in sublist]
-                    for i in range(0, 10):
-                        index, value = max(enumerate(zimgCropMaxRemoved),
-                                           key=operator.itemgetter(1))
-                        imgThumbMax.append(value)
-                        del zimgCropMaxRemoved[index]
-                    imgAvgMax = np.mean(imgThumbMax)
+                    imgAvgMax = scan_analyzer.findMax10Average(zimgCrop)
                     # Save calculated values
                     pimg = pdata.create_dataset(
                             "Raman_Laser_0Order_Processed_Image", data=zimg)
@@ -206,10 +254,12 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     pimg.attrs.create("average of 10 maxima", imgAvgMax)
 
                     # --- RAMAN LASER SPECTRUM ---
+                    bgnd_datafile = scan_analyzer.getScanDataSetGeneral(
+                                            data, scan_number, current_bgnd_particle_number)
                     data_image = np.array(datafile['Raman_Laser_Spectrum_int'])
                     bias_image = np.array(datafile['Raman_Bias_Spectrum_int'])
                     background_image = np.array(
-                            datafile['Raman_Laser_Spectrum_atBkgndLoc_int'])
+                            bgnd_datafile['Raman_Laser_Spectrum_atBkgndLoc_int'])
                     img = scan_analyzer.processAndor(
                             data_image, bias_image, background_image)
                     zimg = scan_analyzer.reZeroImage(img)
@@ -231,8 +281,8 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     zimg = scan_analyzer.reZeroImage(img)
                     imgMin = zimg.min()
                     imgMax = zimg.max()
-                    zimgCrop = (zimg[65:(data_image.shape[0]-68),
-                                     780:(data_image.shape[1]-770)])
+                    zimgCrop = (zimg[yBotCrop:(data_image.shape[0]-yTopCrop),
+                                     xLeftCrop:(data_image.shape[1]-xRightCrop)])
                     imgThumbIntegral = zimgCrop.sum()
                     # Find 10 max values
                     imgThumbMax = []
@@ -274,6 +324,10 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
             processedData.close()
             data.close()
             print("Finished processing " + filepath.split('/')[-1] + ' !')
+            print("The following particles were found to have nonzero "
+                  "background in Raman 0 order, so a different background "
+                  "image was used:")
+            print(rmn0_bad_bgnd_particle_list)
 
     def btnOutputSelectSWA_clicked(self):
         filepath = QFileDialog.getExistingDirectory(
@@ -368,12 +422,15 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
             Raman0OrderAvgMax = np.mean(Raman0OrderMax)
             White0OrderAvgMax = np.mean(White0OrderMax)
 
-            total_particle_count = 131
-            rings = [7, 18, 22, 24, 31, 39, 46, 51, 56, 69, 78, 80, 81, 82, 86, 117, 125]
-            dims = []
-            asymmetrics = [10, 21, 28, 29, 35, 45, 49, 57, 62, 66, 68, 75, 77, 84, 98, 99, 105, 106, 116, 120]
-            junks = [3, 5, 13, 15, 16, 17, 25, 36, 48, 50, 70, 71, 74, 85, 87, 88, 93, 94, 104, 109, 118, 122, 123, 124, 131,
-            	1, 6, 20, 23, 32, 34, 38, 47, 52, 53, 54, 55, 59, 60, 83, 89, 110, 112, 113, 114, 127, 128, 129]
+            total_particle_count = 152
+            rings = [39, 42, 52, 54, 58, 64, 72, 87, 90, 94, 102, 109, 111, 123,
+                     128, 129]
+            dims = [3, 9, 18, 19, 21, 29, 48, 71, 106, 113, 126, 142]
+            asymmetrics = [22, 24, 70, 89, 100, 103, 114, 133, 140, 141, 145]
+            junks = [1, 2, 4, 5, 7, 10, 16, 17, 20, 25, 27, 32, 33, 35, 38, 41,
+                     45, 49, 50, 55, 56, 63, 66, 67, 73, 74, 75, 76, 77, 80, 81, 82,
+                     83, 84, 85, 88, 95, 96, 98, 101, 104, 115, 117, 125, 130, 131, 132, 134,
+                     135, 136, 137, 138, 139, 143, 144, 146, 147, 148, 149, 150, 151]
             spots = [x for x in range(0, total_particle_count) if x not in rings+dims+asymmetrics+junks]
             
             identities = []
@@ -425,19 +482,113 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                 bbox_inches='tight')
                     plt.close()
 
-                    # --- RAMAN LASER 0 ORDER IMAGE ---
+                    # --- RAMAN DF 0 ORDER IMAGE ---
                     data_image = np.array(
-                            datafile['Raman_Laser_0Order_Processed_Image'])
+                        datafile['Raman_White_Light_0Order_Processed_Image'])
+                    ShapeAnalyser = ShapeAnalysis()
+                    #output_img = ShapeAnalyser.process_image(data_image[50:150, 750:850],"fig{}".format(particle_number))
+                    #COM_x, COM_y = ShapeAnalyser.CoM_image(output_img[9])
+                    data_image_32 = np.array(
+                        datafile['Raman_White_Light_0Order_Processed_Image'],
+                        dtype='float32')
+                    # Do a First rough estimation of COM
+                    threshold_mult_factor = 19.0
+                    print("Thresh: "+str(data_image_32[0:60, 790:810].mean()*threshold_mult_factor))
+                    ret, LowThreshImg = cv2.threshold(data_image_32, data_image_32[0:60, 790:810].mean()*threshold_mult_factor, data_image_32.max(), cv2.THRESH_TOZERO)
+                    ret, threshImg = cv2.threshold(LowThreshImg, LowThreshImg[75:125, 775:825].mean(), data_image_32.max(), cv2.THRESH_TRUNC)
+                    bbox, [COM_x, COM_y] = ShapeAnalyser.process_bbox_centre(threshImg)
+                    # COM_y, COM_x = ShapeAnalyser.CoM_image(threshImg)
+                    COM_y = COM_y
+                    COM_x = COM_x
+                    # Refine COM
+#                    threshold_mult_factor = 17.0
+#                    high_threshold_mult_factor = 0.9
+#                    print("Thresh 2: "+str(data_image_32[0:(COM_y-20), (COM_x-10):(COM_x+10)].mean()*threshold_mult_factor))
+#                    ret, LowThreshImg = cv2.threshold(data_image_32, data_image_32[0:(COM_y-20), (COM_x-10):(COM_x+10)].mean()*threshold_mult_factor, data_image_32.max(), cv2.THRESH_TOZERO)
+#                    ret, threshImg = cv2.threshold(LowThreshImg, LowThreshImg[(COM_y-20):(COM_y+20), (COM_x-20):(COM_x+20)].mean()*high_threshold_mult_factor, data_image_32.max(), cv2.THRESH_TRUNC)
+#                    COM_y, COM_x = ShapeAnalyser.CoM_image(threshImg)
+#                    COM_y = 200 - COM_y
+#                    COM_x = COM_x
+                    #COM_y, COM_x = ndimage.measurements.center_of_mass(data_image)
+                    print("COM = ["+str(COM_x)+", "+str(COM_y)+"]")
+                    xstart = 775
+                    xstop = data_image.shape[1]-775
+                    ystart = 75
+                    ystop = data_image.shape[0]-75
+                    xmean = np.mean(np.asarray([xstart, xstop]))
+                    ymean = np.mean(np.asarray([ystart, ystop]))
+                    yoffset = COM_y - 100
+                    xoffset = COM_x - 800
                     fig = plt.figure()
                     ax = plt.subplot(111)
                     ax.imshow(
-                       data_image[:, 700:(data_image.shape[1]-700)],
+                       data_image[ystart-yoffset:ystop-yoffset, xstart+xoffset:xstop+xoffset],
                        aspect='auto',
-                       extent=[700, data_image.shape[1]-700,
-                               0, data_image.shape[0]],
+                       extent=[xstart+xoffset, xstop+xoffset,
+                               ystart+yoffset, ystop+yoffset],
+                       cmap='gray',
+                       vmin=0,
+                       vmax=White0OrderAvgMax)
+                    plt.plot(COM_x,COM_y,'r.', mfc='none', mew=1, markersize=5)
+                    plt.axis('equal')
+                    ax.set_adjustable('box-forced')
+                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
+                                '/scan' + str(scan_number) +
+                                'particle' + str(particle_number) +
+                                '_DF0Order.png',
+                                bbox_inches='tight')
+                    plt.close()
+                    # debuggin plot
+                    fig = plt.figure()
+                    ax = plt.subplot(111)
+                    ax.imshow(
+                       threshImg,
+                       aspect='auto',
+                       extent=[0, data_image.shape[1], 0, data_image.shape[0]],
+                       cmap='gray',
+                       vmin=0,
+                       vmax=threshImg.max())
+                    plt.plot(COM_x,COM_y,'ro', mfc='none', mew=1, markersize=1)
+                    plt.plot(bbox[0][0],bbox[0][1],'r.', mfc='none', mew=1, markersize=1)
+                    plt.plot(bbox[1][0],bbox[1][1],'r.', mfc='none', mew=1, markersize=1)
+                    plt.plot(bbox[2][0],bbox[2][1],'r.', mfc='none', mew=1, markersize=1)
+                    plt.plot(bbox[3][0],bbox[3][1],'r.', mfc='none', mew=1, markersize=1)
+                    plt.axis('equal')
+                    ax.set_adjustable('box-forced')
+                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
+                                '/scan' + str(scan_number) +
+                                'particle' + str(particle_number) +
+                                '_DF0OrderThresh.png',
+                                bbox_inches='tight')
+                    plt.close()
+
+                    # --- RAMAN LASER 0 ORDER IMAGE ---
+                    data_image = np.array(
+                            datafile['Raman_Laser_0Order_Processed_Image'])
+                    xstart = 775
+                    xstop = data_image.shape[1]-775
+                    ystart = 75
+                    ystop = data_image.shape[0]-75
+                    xmean = np.mean(np.asarray([xstart, xstop]))
+                    ymean = np.mean(np.asarray([ystart, ystop]))
+                    yoffset = COM_y - 100
+                    xoffset = COM_x - 800
+                    fig = plt.figure()
+                    ax = plt.subplot(111)
+                    ax.imshow(
+                       data_image[ystart-yoffset:ystop-yoffset, xstart+xoffset:xstop+xoffset],
+                       aspect='auto',
+                       extent=[xstart+xoffset, xstop+xoffset,
+                               ystart+yoffset, ystop+yoffset],
                        cmap='gray',
                        vmin=0,
                        vmax=Raman0OrderAvgMax)
+                    weight = 3
+                    plt.plot([xoffset+xmean,xoffset+xmean],[yoffset+ystart+15,yoffset+ystart+5],'r-', linestyle = "-", lw=weight)
+                    plt.plot([xoffset+xmean,xoffset+xmean],[yoffset+ystart+45,yoffset+ystart+35],'r-', linestyle = "-", lw=weight)
+                    plt.plot([xoffset+xstart+15,xoffset+xstart+5],[yoffset+ymean,yoffset+ymean],'r-', linestyle = "-", lw=weight)
+                    plt.plot([xoffset+xstart+45,xoffset+xstart+35],[yoffset+ymean,yoffset+ymean],'r-', linestyle = "-", lw=weight)
+                    plt.plot(xoffset+xmean,yoffset+ymean,'r.', mfc='none', mew=weight, markersize=1)
                     plt.axis('equal')
                     ax.set_adjustable('box-forced')
                     fig.savefig(processed_filepath + '/' + identities[particle_number] +
@@ -447,27 +598,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                 bbox_inches='tight')
                     plt.close()
 
-                    # --- RAMAN DF 0 ORDER IMAGE ---
-                    data_image = np.array(
-                        datafile['Raman_White_Light_0Order_Processed_Image'])
-                    fig = plt.figure()
-                    ax = plt.subplot(111)
-                    ax.imshow(
-                       data_image[:, 700:(data_image.shape[1]-700)],
-                       aspect='auto',
-                       extent=[700, data_image.shape[1]-700,
-                               0, data_image.shape[0]],
-                       cmap='gray',
-                       vmin=0,
-                       vmax=White0OrderAvgMax)
-                    plt.axis('equal')
-                    ax.set_adjustable('box-forced')
-                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-                                '/scan' + str(scan_number) +
-                                'particle' + str(particle_number) +
-                                '_DF0Order.png',
-                                bbox_inches='tight')
-                    plt.close()
 
                     # --- RAMAN LASER SPECTRUM IMAGE ---
                     dset = datafile['Raman_Laser_Spectrum_Processed_Image']
@@ -644,6 +774,7 @@ class ParticleScanAnalysis:
         return processed_image
 
     def getScanDataFile(self, filepath):
+        print(filepath)
         datafile = h5py.File(filepath, 'a')
         return datafile
 
@@ -708,6 +839,17 @@ class ParticleScanAnalysis:
         azimuthalprofile[azimuthalprofile <= 0] = azimuthalprofileAVG[
                                                         azimuthalprofile <= 0]
         return azimuthalprofile
+
+    def findMax10Average(self, data):
+        imgThumbMax = []
+        dataMaxRemoved = [item for sublist in data for item in sublist]
+        for i in range(0, 10):
+            index, value = max(enumerate(dataMaxRemoved),
+                               key=operator.itemgetter(1))
+            imgThumbMax.append(value)
+            del dataMaxRemoved[index]
+        imgAvgMax = np.mean(imgThumbMax)
+        return imgAvgMax
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
