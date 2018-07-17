@@ -26,7 +26,6 @@ import scipy.sparse as sparse
 import scipy.sparse.linalg as linalg
 
 from nplab.analysis import smoothing
-from nplab.analysis import Adaptive_Polynomial
 
 sys.path.insert(0,"C:/Users/mjh250/Documents/Local mjh250/mjh250/Matt Scripts/PostProcessing/From Ilya")
 
@@ -194,31 +193,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                         pimg.attrs.create(
                                 "timestamp", datetime.datetime.now().isoformat())
     
-    #                    # --- LASER BEAM IMAGE ---
-    #                    data_image = scan_analyzer.getGrayscaleImage(
-    #                            'Infinity3_Laser_Beam_Image', datafile)
-    #                    bias_image = scan_analyzer.getGrayscaleImage(
-    #                            'Infinity3_Bias_Image', datafile)
-    #                    img = scan_analyzer.processImage(data_image, bias_image)
-    #                    zimg = scan_analyzer.reZeroImage(img)
-    #                    pimg = pdata.create_dataset(
-    #                            "Infinity3_Laser_Beam_Processed_Image", data=zimg)
-    #                    pimg.attrs.create(
-    #                            "timestamp", datetime.datetime.now().isoformat())
-    #
-    #                    # --- LASER BEAM IMAGE AT BACKGROUND LOCATION ---
-    #                    data_image = scan_analyzer.getGrayscaleImage(
-    #                            'Infinity3_Laser_Beam_Image_atBkgndLoc', datafile)
-    #                    bias_image = scan_analyzer.getGrayscaleImage(
-    #                            'Infinity3_Bias_Image', datafile)
-    #                    img = scan_analyzer.processImage(data_image, bias_image)
-    #                    zimg = scan_analyzer.reZeroImage(img)
-    #                    pimg = pdata.create_dataset(
-    #                          "Infinity3_Laser_Beam_Processed_Image_atBkgndLoc",
-    #                          data=zimg)
-    #                    pimg.attrs.create(
-    #                            "timestamp", datetime.datetime.now().isoformat())
-    
                         # --- RAMAN LASER ZERO ORDER ---
                         data_image = np.array(datafile['Raman_Laser_0Order_int'])
                         bias_image = np.array(datafile['Raman_Bias_0Order_int'])
@@ -226,13 +200,13 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                         # Find a good background image
                         if "2017_12_14" in filepath:
                             tmp_datafile = scan_analyzer.getScanDataSetGeneral(
-                                                data, scan_number, 1) # Prticle 1 has a good background
+                                                data, scan_number, 1) # Particle 1 has a good background
                             background_image = np.array(
                                 tmp_datafile['Raman_Laser_0Order_atBkgndLoc_int'])
                             current_bgnd_particle_number = 1
                         elif "2018_02_16" in filepath:
                             tmp_datafile = scan_analyzer.getScanDataSetGeneral(
-                                                data, scan_number, 32) # Prticle 32 has a good background
+                                                data, scan_number, 32) # Particle 32 has a good background
                             background_image = np.array(
                                 tmp_datafile['Raman_Laser_0Order_atBkgndLoc_int'])
                             current_bgnd_particle_number = 32
@@ -427,31 +401,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                     "Infinity3_Second_Processed_Image", data=zimg)
                             pimg.attrs.create(
                                     "timestamp", datetime.datetime.now().isoformat())
-        
-        #                    # --- LASER BEAM IMAGE ---
-        #                    data_image = scan_analyzer.getGrayscaleImage(
-        #                            'Infinity3_Laser_Beam_Image', datafile)
-        #                    bias_image = scan_analyzer.getGrayscaleImage(
-        #                            'Infinity3_Bias_Image', datafile)
-        #                    img = scan_analyzer.processImage(data_image, bias_image)
-        #                    zimg = scan_analyzer.reZeroImage(img)
-        #                    pimg = pdata.create_dataset(
-        #                            "Infinity3_Laser_Beam_Processed_Image", data=zimg)
-        #                    pimg.attrs.create(
-        #                            "timestamp", datetime.datetime.now().isoformat())
-        #
-        #                    # --- LASER BEAM IMAGE AT BACKGROUND LOCATION ---
-        #                    data_image = scan_analyzer.getGrayscaleImage(
-        #                            'Infinity3_Laser_Beam_Image_atBkgndLoc', datafile)
-        #                    bias_image = scan_analyzer.getGrayscaleImage(
-        #                            'Infinity3_Bias_Image', datafile)
-        #                    img = scan_analyzer.processImage(data_image, bias_image)
-        #                    zimg = scan_analyzer.reZeroImage(img)
-        #                    pimg = pdata.create_dataset(
-        #                          "Infinity3_Laser_Beam_Processed_Image_atBkgndLoc",
-        #                          data=zimg)
-        #                    pimg.attrs.create(
-        #                            "timestamp", datetime.datetime.now().isoformat())
         
                             # --- RAMAN LASER ZERO ORDER ---
                             data_image = np.array(datafile['Raman_Laser_0Order_int'])
@@ -899,45 +848,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                                          kernel=kernel,
                                                          borderType=cv2.BORDER_REPLICATE)
                         (COM3_y, COM3_x) = np.unravel_index(image_convolution.argmax(), image_convolution.shape)
-    
-                        # Make plots and save figures
-    #                    fig = plt.figure()
-    #                    plt.imshow(image_convolution)
-    #                    plt.plot(COM3_x,COM3_y,'r.', mfc='none', mew=1, markersize=2)
-    #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-    #                                '/scan' + str(scan_number) +
-    #                                'particle' + str(particle_number) +
-    #                                '_Convolution.png',
-    #                                bbox_inches='tight')
-    #                    plt.close()
-    #                    
-    #                    fig = plt.figure()
-    #                    plt.imshow(np.pad(kernel, ((5, 6), (5, 6)), 'minimum'))
-    #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-    #                                '/scan' + str(scan_number) +
-    #                                'particle' + str(particle_number) +
-    #                                '_DonutKernel.png',
-    #                                bbox_inches='tight')
-    #                    plt.close()
-    #                    
-    #                    fig = plt.figure()
-    #                    plt.imshow(data_image_8)
-    #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-    #                                '/scan' + str(scan_number) +
-    #                                'particle' + str(particle_number) +
-    #                                '_DF0OrderForHough.png',
-    #                                bbox_inches='tight')
-    #                    plt.close()
-    #                    
-    #                    fig = plt.figure()
-    #                    plt.imshow(data_image_binary)
-    #                    plt.plot(COM_x,COM_y,'r.', mfc='none', mew=1, markersize=2)
-    #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-    #                                '/scan' + str(scan_number) +
-    #                                'particle' + str(particle_number) +
-    #                                '_DF0OrderForRoughCOM.png',
-    #                                bbox_inches='tight')
-    #                    plt.close()
                         
                         xstart = 775
                         xstop = data_image.shape[1]-775
@@ -958,8 +868,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                            cmap='gray',
                            vmin=0,
                            vmax=white_normalization_target)
-    #                    plt.plot(COM_x+750,200-(COM_y+50),'b.', mfc='none', mew=2, markersize=10)
-    #                    plt.plot(COM2_x+750,200-(COM2_y+50),'g.', mfc='none', mew=2, markersize=10)
                         plt.plot(COM3_x+750,200-(COM3_y+50),'r.', mfc='none', mew=2, markersize=10)
                         plt.axis('equal')
                         ax.set_adjustable('box-forced')
@@ -971,30 +879,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                         plt.close()
                         
                         DF_data_image = data_image
-                        
-                        # debuggin plot
-    #                    fig = plt.figure()
-    #                    ax = plt.subplot(111)
-    #                    ax.imshow(
-    #                       threshImg,
-    #                       aspect='auto',
-    #                       extent=[0, data_image.shape[1], 0, data_image.shape[0]],
-    #                       cmap='gray',
-    #                       vmin=0,
-    #                       vmax=threshImg.max())
-    #                    plt.plot(COM_x,COM_y,'ro', mfc='none', mew=1, markersize=1)
-    #                    plt.plot(bbox[0][0],bbox[0][1],'r.', mfc='none', mew=1, markersize=1)
-    #                    plt.plot(bbox[1][0],bbox[1][1],'r.', mfc='none', mew=1, markersize=1)
-    #                    plt.plot(bbox[2][0],bbox[2][1],'r.', mfc='none', mew=1, markersize=1)
-    #                    plt.plot(bbox[3][0],bbox[3][1],'r.', mfc='none', mew=1, markersize=1)
-    #                    plt.axis('equal')
-    #                    ax.set_adjustable('box-forced')
-    #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-    #                                '/scan' + str(scan_number) +
-    #                                'particle' + str(particle_number) +
-    #                                '_DF0OrderThresh.png',
-    #                                bbox_inches='tight')
-    #                    plt.close()
     
                         # --- RAMAN LASER 0 ORDER IMAGE ---
                         data_image = np.array(
@@ -1312,45 +1196,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                                              kernel=kernel,
                                                              borderType=cv2.BORDER_REPLICATE)
                             (COM3_y, COM3_x) = np.unravel_index(image_convolution.argmax(), image_convolution.shape)
-        
-                            # Make plots and save figures
-        #                    fig = plt.figure()
-        #                    plt.imshow(image_convolution)
-        #                    plt.plot(COM3_x,COM3_y,'r.', mfc='none', mew=1, markersize=2)
-        #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-        #                                '/scan' + str(scan_number) +
-        #                                'particle' + str(particle_number) +
-        #                                '_Convolution.png',
-        #                                bbox_inches='tight')
-        #                    plt.close()
-        #                    
-        #                    fig = plt.figure()
-        #                    plt.imshow(np.pad(kernel, ((5, 6), (5, 6)), 'minimum'))
-        #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-        #                                '/scan' + str(scan_number) +
-        #                                'particle' + str(particle_number) +
-        #                                '_DonutKernel.png',
-        #                                bbox_inches='tight')
-        #                    plt.close()
-        #                    
-        #                    fig = plt.figure()
-        #                    plt.imshow(data_image_8)
-        #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-        #                                '/scan' + str(scan_number) +
-        #                                'particle' + str(particle_number) +
-        #                                '_DF0OrderForHough.png',
-        #                                bbox_inches='tight')
-        #                    plt.close()
-        #                    
-        #                    fig = plt.figure()
-        #                    plt.imshow(data_image_binary)
-        #                    plt.plot(COM_x,COM_y,'r.', mfc='none', mew=1, markersize=2)
-        #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-        #                                '/scan' + str(scan_number) +
-        #                                'particle' + str(particle_number) +
-        #                                '_DF0OrderForRoughCOM.png',
-        #                                bbox_inches='tight')
-        #                    plt.close()
                             
                             xstart = 775
                             xstop = data_image.shape[1]-775
@@ -1371,8 +1216,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                cmap='gray',
                                vmin=0,
                                vmax=white_normalization_target)
-        #                    plt.plot(COM_x+750,200-(COM_y+50),'b.', mfc='none', mew=2, markersize=10)
-        #                    plt.plot(COM2_x+750,200-(COM2_y+50),'g.', mfc='none', mew=2, markersize=10)
                             plt.plot(COM3_x+750,200-(COM3_y+50),'r.', mfc='none', mew=2, markersize=10)
                             plt.axis('equal')
                             ax.set_adjustable('box-forced')
@@ -1384,30 +1227,6 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                             plt.close()
                             
                             DF_data_image = data_image
-                            
-                            # debuggin plot
-        #                    fig = plt.figure()
-        #                    ax = plt.subplot(111)
-        #                    ax.imshow(
-        #                       threshImg,
-        #                       aspect='auto',
-        #                       extent=[0, data_image.shape[1], 0, data_image.shape[0]],
-        #                       cmap='gray',
-        #                       vmin=0,
-        #                       vmax=threshImg.max())
-        #                    plt.plot(COM_x,COM_y,'ro', mfc='none', mew=1, markersize=1)
-        #                    plt.plot(bbox[0][0],bbox[0][1],'r.', mfc='none', mew=1, markersize=1)
-        #                    plt.plot(bbox[1][0],bbox[1][1],'r.', mfc='none', mew=1, markersize=1)
-        #                    plt.plot(bbox[2][0],bbox[2][1],'r.', mfc='none', mew=1, markersize=1)
-        #                    plt.plot(bbox[3][0],bbox[3][1],'r.', mfc='none', mew=1, markersize=1)
-        #                    plt.axis('equal')
-        #                    ax.set_adjustable('box-forced')
-        #                    fig.savefig(processed_filepath + '/' + identities[particle_number] +
-        #                                '/scan' + str(scan_number) +
-        #                                'particle' + str(particle_number) +
-        #                                '_DF0OrderThresh.png',
-        #                                bbox_inches='tight')
-        #                    plt.close()
         
                             # --- RAMAN LASER 0 ORDER IMAGE ---
                             data_image = np.array(
