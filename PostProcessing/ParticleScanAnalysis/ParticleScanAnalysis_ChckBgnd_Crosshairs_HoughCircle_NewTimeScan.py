@@ -73,7 +73,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
         print("Initializing...")
         
         # TODO: Update constants here
-        badBgndThreshold = 6.75e+06
+        badBgndThreshold = 2.008e+06
         yBotCrop = 65
         yTopCrop = 68
         xLeftCrop = 780
@@ -151,6 +151,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     if subparticle_number_list[scan_number][particle_number]:
                         time_scan = True
                     else:
+                        time_scan = False
                         # --- Print name of file being analyzed to track progress
                         print('Processing ParticleScannerScan_%s/Particle_%s'
                               % (scan_number, particle_number))
@@ -651,17 +652,26 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     pixel_max_subsublist_Raman0Order = []
                     pixel_max_subsublist_White0Order = []
                     subsublist_timestamps = []
-                    for l, subparticle_number in enumerate(subparticle_number_list[n][m]):
+                    if subparticle_number_list[n][particle_number]:
+                        for l, subparticle_number in enumerate(subparticle_number_list[n][m]):
+                            datafile = scan_analyzer.getProcessedScanDataSet(
+                                                    data, scan_number, particle_number, l)
+                            pixel_max_subsublist_Raman0Order.append(
+                                    datafile["Raman_Laser_0Order_Processed_Image"].attrs['average of 10 maxima'])
+                            pixel_max_subsublist_White0Order.append(
+                                    datafile["Raman_White_Light_0Order_Processed_Image"].attrs['average of 10 maxima'])
+                            subsublist_timestamps.append(datafile["Raman_Laser_0Order_Processed_Image"].attrs['creation timestamp'])
+                        pixel_max_sublist_Raman0Order.append(pixel_max_subsublist_Raman0Order)
+                        pixel_max_sublist_White0Order.append(pixel_max_subsublist_White0Order)
+                        sublist_timestamps.append(subsublist_timestamps)
+                    else:
                         datafile = scan_analyzer.getProcessedScanDataSet(
-                                                data, scan_number, particle_number, l)
-                        pixel_max_subsublist_Raman0Order.append(
+                                                data, scan_number, particle_number)
+                        pixel_max_sublist_Raman0Order.append(
                                 datafile["Raman_Laser_0Order_Processed_Image"].attrs['average of 10 maxima'])
-                        pixel_max_subsublist_White0Order.append(
+                        pixel_max_sublist_White0Order.append(
                                 datafile["Raman_White_Light_0Order_Processed_Image"].attrs['average of 10 maxima'])
-                        subsublist_timestamps.append(datafile["Raman_Laser_0Order_Processed_Image"].attrs['creation timestamp'])
-                    pixel_max_sublist_Raman0Order.append(pixel_max_subsublist_Raman0Order)
-                    pixel_max_sublist_White0Order.append(pixel_max_subsublist_White0Order)
-                    sublist_timestamps.append(subsublist_timestamps)
+                        sublist_timestamps.append(datafile["Raman_Laser_0Order_Processed_Image"].attrs['creation timestamp'])
                 pixel_max_list_Raman0Order.append(pixel_max_sublist_Raman0Order)
                 pixel_max_list_White0Order.append(pixel_max_sublist_White0Order)
                 list_timestamps.append(sublist_timestamps)
@@ -688,11 +698,11 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
             print(pixel_max_list_Raman0Order)
 
             # TODO: Update sorting data here 
-            total_particle_count = 7
-            rings = [0, 2, 3]
+            total_particle_count = 186
+            rings = []
             dims = []
-            asymmetrics = [5]
-            junks = [4, 6]
+            asymmetrics = []
+            junks = [x for x in range(68, total_particle_count)]
             spots = [x for x in range(0, total_particle_count) if x not in rings+dims+asymmetrics+junks]
 
             identities = []
@@ -716,7 +726,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
             per_image_normalization = True
             contrast_enhancement_factor = 2 # >0, bigger is darker
             pixel_min = 0 # lower limit of the colorscale
-            spectrum_left_crop = 300 # Amount by which to crop spectra (from the left)
+            spectrum_left_crop = 0 # Amount by which to crop spectra (from the left)
             spectrum_slice_radius = 40 # Radius of the part of the Andor sensor to integrate over for generating spectrum line graph
             cosmic_ray_threshold = 100
             raman_denoising_weight = 0  # Amount of denoising to apply to Raman spectra (0 is no smoothing)
@@ -730,10 +740,11 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                     if subparticle_number_list[n][particle_number]:
                         time_scan = True
                     else:
+                        time_scan = False
                         # --- Decide how to normalize images
                         if per_image_normalization:
-                            white_normalization_target = pixel_max_list_White0Order[n][particle_number][subparticle_number]
-                            normalization_target = pixel_max_list_Raman0Order[n][particle_number][subparticle_number]
+                            white_normalization_target = pixel_max_list_White0Order[n][particle_number]
+                            normalization_target = pixel_max_list_Raman0Order[n][particle_number]
                         else:
                             white_normalization_target = White0OrderAvgMax*contrast_enhancement_factor
                             normalization_target = Raman0OrderAvgMax*contrast_enhancement_factor
@@ -990,14 +1001,20 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                         plt.close()
                         # Line plot:
                         data_line = np.sum(data_image[100-spectrum_slice_radius:100+spectrum_slice_radius,:], axis=0)
-                        data_wavelengths = dset.attrs['wavelengths']
+                        data_wavelengths = dset.attrs['wavelengths'][spectrum_left_crop:]
                         data_wavelengths = np.asarray([x for x in data_wavelengths if x >= 650])
                         data_wavenumbers = ((1.0/632.8)-(1.0/data_wavelengths))*(1E7)
+                        print("data_line.shape = " + str(data_line.shape))
                         data_line = np.asarray(data_line[data_line.size-data_wavelengths.size:])
+                        print("data_line.shape = " + str(data_line.shape))
                         data_line, value, status = smoothing.convex_smooth(data_line, weight=raman_denoising_weight, objective_type="quadratic", normalise=True)
+                        print("data_line.shape = " + str(data_line.shape))
                         fig = plt.figure()
                         ax = plt.subplot(111)
-                        ax.plot(data_wavelengths, data_line)
+                        if subtract_raman_PL:
+                            ax.plot(data_wavenumbers, data_line-data_line_bgdfit)
+                        else:
+                            ax.plot(data_wavenumbers, data_line)
                         plt.minorticks_on()
                         minorLocator = AutoMinorLocator(5)
                         ax.xaxis.set_minor_locator(minorLocator)
@@ -1033,7 +1050,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                         plt.close()
                         # Line plot:
                         data_line = np.sum(data_image[100-spectrum_slice_radius:100+spectrum_slice_radius,:], axis=0)
-                        data_wavelengths = dset.attrs['wavelengths']
+                        data_wavelengths = dset.attrs['wavelengths'][spectrum_left_crop:]
                         data_wavelengths = np.asarray([x for x in data_wavelengths if x >= 650])
                         data_line = np.asarray(data_line[data_line.size-data_wavelengths.size:])
                         data_line, value, status = smoothing.convex_smooth(data_line, weight=DF_denoising_weight, objective_type="quadratic", normalise=True)
@@ -1346,7 +1363,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                             plt.close()
                             # Line plot:
                             data_line = np.sum(data_image[100-spectrum_slice_radius:100+spectrum_slice_radius,:], axis=0)
-                            data_wavelengths = dset.attrs['wavelengths']
+                            data_wavelengths = dset.attrs['wavelengths'][spectrum_left_crop:]
                             data_wavelengths = np.asarray([x for x in data_wavelengths if x >= 650])
                             data_wavenumbers = ((1.0/632.8)-(1.0/data_wavelengths))*(1E7)
                             data_line = np.asarray(data_line[data_line.size-data_wavelengths.size:])
@@ -1393,7 +1410,7 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                             plt.close()
                             # Line plot:
                             data_line = np.sum(data_image[100-spectrum_slice_radius:100+spectrum_slice_radius,:], axis=0)
-                            data_wavelengths = dset.attrs['wavelengths']
+                            data_wavelengths = dset.attrs['wavelengths'][spectrum_left_crop:]
                             data_wavelengths = np.asarray([x for x in data_wavelengths if x >= 650])
                             data_line = np.asarray(data_line[data_line.size-data_wavelengths.size:])
                             data_line, value, status = smoothing.convex_smooth(data_line, weight=DF_denoising_weight, objective_type="quadratic", normalise=True)
@@ -1434,24 +1451,24 @@ class MainDialog(QMainWindow, window.Ui_MainWindow):
                                         bbox_inches='tight')
                             plt.close()
                     
-                    # - Plot line graph of intensity vs time
-                    line_data = pixel_max_list_Raman0Order[n][particle_number]
-                    timestamps_data = list_timestamps[n][particle_number]
-                    datetimes_data = [datetime.datetime.strptime(i.split(".")[0], '%Y-%m-%dT%H:%M:%S') for i in timestamps_data]
-                    deltatimes_data = [i-datetimes_data[0] for i in datetimes_data]
-                    minutes_data = [int(i.total_seconds()/60) for i in deltatimes_data]
-                    fig = plt.figure()
-                    ax = plt.subplot(111)
-                    ax.plot(minutes_data, line_data)
-                    ax.set_title("Intensity time decay of the brightest pixel. Particle " + str(particle_number))
-                    ax.set_xlabel("Time (minutes)")
-                    ax.set_ylabel("Intensity (counts)")
-                    fig.savefig(processed_filepath + '/LineGraphs' +
-                                        '/scan' + str(scan_number) +
-                                        'particle' + str(particle_number) +
-                                        '_MaxPixelVsTime.png',
-                                        bbox_inches='tight')
-                    plt.close()
+                        # - Plot line graph of intensity vs time
+                        line_data = pixel_max_list_Raman0Order[n][particle_number]
+                        timestamps_data = list_timestamps[n][particle_number]
+                        datetimes_data = [datetime.datetime.strptime(i.split(".")[0], '%Y-%m-%dT%H:%M:%S') for i in timestamps_data]
+                        deltatimes_data = [i-datetimes_data[0] for i in datetimes_data]
+                        minutes_data = [int(i.total_seconds()/60) for i in deltatimes_data]
+                        fig = plt.figure()
+                        ax = plt.subplot(111)
+                        ax.plot(minutes_data, line_data)
+                        ax.set_title("Intensity time decay of the brightest pixel. Particle " + str(particle_number))
+                        ax.set_xlabel("Time (minutes)")
+                        ax.set_ylabel("Intensity (counts)")
+                        fig.savefig(processed_filepath + '/LineGraphs' +
+                                            '/scan' + str(scan_number) +
+                                            'particle' + str(particle_number) +
+                                            '_MaxPixelVsTime.png',
+                                            bbox_inches='tight')
+                        plt.close()
                     
 
             data.close()
