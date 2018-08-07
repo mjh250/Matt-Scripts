@@ -20,10 +20,11 @@ import time
 
 
 HSSpeed = 2
-andor_exposure_time_0Order =5
+andor_exposure_time_0Order = 5
 andor_exposure_time_spec = andor_exposure_time_0Order*3
 donut_z_offset = 0  # z offset to move focus to the donut mode
-centre_wavelength = 675
+centre_wavelength = 695
+tile_edge_width_to_ignore = 250
 
 # Set up camera with click to move stage control
 cam = LumeneraCamera(1)
@@ -67,6 +68,7 @@ wizard = TrackingWizard(CWL, equipment_dict, )
 shamdor.show_gui(blocking=False)
 wizard.data_file.show_gui(blocking=False, )
 wizard.show()
+wizard.tile_edge = tile_edge_width_to_ignore
 
 
 def OpenWhiteLightShutter():
@@ -102,7 +104,7 @@ def SetShamrockSlit(slitWidth=2000):
     time.sleep(1)
 
 
-def TakeInfinity3Image(imageName="Infinity3_Bias_Image"):
+def TakeInfinity3Image(imageName="Infinity3_Bias_Image", group=None):
     # Infinity3
     # We're going to take a picture - best make sure we've waited a
     # moment for the focus to return
@@ -111,14 +113,19 @@ def TakeInfinity3Image(imageName="Infinity3_Bias_Image"):
     # take a frame and ignore (for freshness)
     CWL.camera.update_latest_frame()
     image = CWL.camera.color_image()
-    img = wizard.particle_group.create_dataset(imageName, data=image[
-            image.shape[0]/2-50: image.shape[0]/2+50,
-            image.shape[1]/2-50:image.shape[1]/2+50])
+    if group is None:
+        img = wizard.particle_group.create_dataset(imageName, data=image[
+                image.shape[0]/2-50: image.shape[0]/2+50,
+                image.shape[1]/2-50:image.shape[1]/2+50])
+    else:
+        img = group.create_dataset(imageName, data=image[
+                image.shape[0]/2-50: image.shape[0]/2+50,
+                image.shape[1]/2-50:image.shape[1]/2+50])
     img.attrs.create("stage_position", CWL.stage.position)
     img.attrs.create("timestamp", datetime.datetime.now().isoformat())
 
 
-def TakeAndor0Order(imageName="Raman_Bias_0Order"):
+def TakeAndor0Order(imageName="Raman_Bias_0Order", group=None):
     print("Matt: Taking "+imageName)
     shamdor.shamrock.GotoZeroOrder()
     shamdor.shamrock.SetSlit(2000)
@@ -129,7 +136,11 @@ def TakeAndor0Order(imageName="Raman_Bias_0Order"):
     #                    (-1, shamdor.shamrock.pixel_number))
     image = shamdor.raw_snapshot()[1]
     # wavelengths = shamdor.metadata['x_axis']
-    rint = wizard.particle_group.create_dataset(imageName+"_int", data=image)
+    if group is None:
+        rint = wizard.particle_group.create_dataset(imageName+"_int",
+                                                    data=image)
+    else:
+        rint = group.create_dataset(imageName+"_int", data=image)
     # wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
     # rint.attrs.create("Laser power", raman.laser_power)
     rint.attrs.create("Slit size", shamdor.shamrock.slit_width)
@@ -137,7 +148,7 @@ def TakeAndor0Order(imageName="Raman_Bias_0Order"):
     # rint.attrs.create("description", raman.scan_desc)
 
 
-def TakeAndorSpec(imageName="Raman_Bias_Spectrum"):
+def TakeAndorSpec(imageName="Raman_Bias_Spectrum", group=None):
     print("Matt: Taking "+imageName)
     shamdor.shamrock.SetWavelength(centre_wavelength)
     shamdor.shamrock.SetSlit(100)
@@ -148,20 +159,30 @@ def TakeAndorSpec(imageName="Raman_Bias_Spectrum"):
     #                    (-1, shamdor.shamrock.pixel_number))
     image = shamdor.raw_snapshot()[1]
     wavelengths = shamdor.metadata['x_axis']
-    rint = wizard.particle_group.create_dataset(imageName+"_int", data=image)
-    wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
+    if group is None:
+        rint = wizard.particle_group.create_dataset(imageName+"_int",
+                                                    data=image)
+        wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
+    else:
+        rint = group.create_dataset(imageName+"_int", data=image)
+        group.create_dataset(imageName+"_wl", data=wavelengths)
+
     # rint.attrs.create("Laser power", raman.laser_power)
     rint.attrs.create("Slit size", shamdor.shamrock.slit_width)
     rint.attrs.create("Integration time", shamdor.Exposure)
     # rint.attrs.create("description", raman.scan_desc)
 
 
-def TakeOOpticsSpec(imageName="OceanOptics_DF_Spectrum"):
+def TakeOOpticsSpec(imageName="OceanOptics_DF_Spectrum", group=None):
     spectrum = spectrometer.read_processed_spectrum()
     wavelengths = spectrometer.read_wavelengths()
-    rint = wizard.particle_group.create_dataset(imageName+"_int",
-                                                data=spectrum)
-    wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
+    if group is None:
+        rint = wizard.particle_group.create_dataset(imageName+"_int",
+                                                    data=spectrum)
+        wizard.particle_group.create_dataset(imageName+"_wl", data=wavelengths)
+    else:
+        rint = group.create_dataset(imageName+"_int", data=spectrum)
+        group.create_dataset(imageName+"_wl", data=wavelengths)
 
     rint.attrs.create("Integration time", spectrometer.integration_time)
 
@@ -171,7 +192,8 @@ def MoveToBackgroundLoc():
     # FOR A SPOT WITH NO PARTICLES) TODO !!!!!!!!!!!!!!!!
     # For now, move the stage by 3 microns to a (hopefully) empty area
     CWL.stage.move_rel([3, 0, 0])
-    
+
+
 def ReturnFromBackgroundLoc():
     # Move stage slightly to return from background.
     # TODO: make this smarter
@@ -192,11 +214,13 @@ def ParticleEmissionProfileTimeScan(scan_number=0, particle_number=0):
     NP_image_focused = CWL.thumb_image()  # Assumes initial alignment good
     for particle_subnumber in range(0, 15):
         print('====================================')
-        print('Doing time scan iteration number ' + str(particle_subnumber) + '.')
+        print('Doing time scan iteration number ' + str(particle_subnumber) +
+              '.')
         print('====================================')
         wizard.subparticle_group = wizard.particle_group.create_group(
-                            'SubParticle_' + str(particle_subnumber))  # THIS LINE CREATES GROUP, BUT DATA NOT GETTING STORED THERE NEED TO CHANGE EACH FUNTION THAT STORES DATA?
-        StudyParticleEmissionProfile(NP_image_focused)
+                            'SubParticle_' + str(particle_subnumber))
+        StudyParticleEmissionProfile(NP_image_focused,
+                                     wizard.subparticle_group)
 
 
 def ManualParticleEmissionProfileTimeScan(scan_number=0):
@@ -209,59 +233,124 @@ def ManualParticleEmissionProfileTimeScan(scan_number=0):
         print('====================================')
         wizard.particle_group = wizard.scan_group.create_group(
                                 'Particle_' + str(particle_number))
-        StudyParticleEmissionProfile(NP_image_focused)
+        StudyParticleEmissionProfile(NP_image_focused, wizard.particle_group)
 
 
-def StudyParticleEmissionProfile(NP_image_focused=None):
+def BleachingRecoveryTimeScan(scan_number=0, particle_number=0):
+    NP_image_focused = CWL.thumb_image()  # Assumes initial alignment good
+    numberOfLoops = 4
+    for loopNumber in range(0, numberOfLoops):
+        print('====================================')
+        print('Doing loop iteration number ' + str(loopNumber) + '.')
+        print('====================================')
+        wizard.loop_group = wizard.particle_group.create_group(
+                            'Loop_' + str(loopNumber))
+        StudyParticleEmissionProfile(NP_image_focused, wizard.loop_group)
+        for particle_subnumber in range(0, 15):
+            print('====================================')
+            print('Doing time scan iteration number ' +
+                  str(particle_subnumber) + '.')
+            print('====================================')
+            wizard.subparticle_group = wizard.loop_group.create_group(
+                                'SubParticle_' + str(particle_subnumber))
+            QuickStudyParticleEmissionProfile(NP_image_focused,
+                                              wizard.subparticle_group)
+        numberOfMinutesToWait = 5
+        if loopNumber != (numberOfLoops-1):
+            for sleepLoop in range(0, numberOfMinutesToWait):
+                Autofocus()
+                CentreOnFeature(NP_image_focused)
+                print("Waiting for bleached molecules to recover. " +
+                      "Sleeping another " +
+                      str(numberOfMinutesToWait-sleepLoop) + " minutes.")
+                CloseWhiteLightShutter()
+                time.sleep(60)  # Allow bleached molecules to recover
+                OpenWhiteLightShutter()
+
+
+def TestScan(NP_image_focused=None, group=None):
     OpenWhiteLightShutter()
     SetShamrockSlit(2000)
-    #NP_image_unfocused = CWL.thumb_image()
+    Autofocus()
+    if NP_image_focused is None:
+        NP_image_focused = CWL.thumb_image()
+    CentreOnFeature(NP_image_focused)
+    ShiftFocus(donut_z_offset)
+    TakeInfinity3Image("Infinity3_FirstWhiteLight_Image", group)
+    time.sleep(1)
+
+
+def StudyParticleEmissionProfile(NP_image_focused=None, group=None):
+    OpenWhiteLightShutter()
+    SetShamrockSlit(2000)
+    # NP_image_unfocused = CWL.thumb_image()
     Autofocus()
     if NP_image_focused is None:
         NP_image_focused = CWL.thumb_image()
     CentreOnFeature(NP_image_focused)
     CloseWhiteLightShutter()
-    TakeInfinity3Image("Infinity3_Bias_Image")
-    TakeAndor0Order("Raman_Bias_0Order")
-    TakeAndorSpec("Raman_Bias_Spectrum")
+    TakeInfinity3Image("Infinity3_Bias_Image", group)
+    TakeAndor0Order("Raman_Bias_0Order", group)
+    TakeAndorSpec("Raman_Bias_Spectrum", group)
     OpenWhiteLightShutter()
     Autofocus()
     CentreOnFeature(NP_image_focused)
     ShiftFocus(donut_z_offset)
-    TakeInfinity3Image("Infinity3_FirstWhiteLight_Image")
-    TakeAndor0Order("Raman_White_Light_0Order")
-    TakeAndorSpec("Raman_White_Light_Spectrum")
-    TakeOOpticsSpec()
+    TakeInfinity3Image("Infinity3_FirstWhiteLight_Image", group)
+    TakeAndor0Order("Raman_White_Light_0Order", group)
+    TakeAndorSpec("Raman_White_Light_Spectrum", group)
+    TakeOOpticsSpec(group=group)
     Autofocus()
-    CentreOnFeature(NP_image_focused)
+    # CentreOnFeature(NP_image_focused)
     ShiftFocus(donut_z_offset)
     CloseWhiteLightShutter()
     OpenLaserShutter()
-    TakeAndor0Order("Raman_Laser_0Order")
-    TakeAndorSpec("Raman_Laser_Spectrum")
+    TakeAndor0Order("Raman_Laser_0Order", group)
+    TakeAndorSpec("Raman_Laser_Spectrum", group)
     CloseLaserShutter()
     OpenWhiteLightShutter()
-    TakeInfinity3Image("Infinity3_SecondWhiteLight_Image")
+    TakeInfinity3Image("Infinity3_SecondWhiteLight_Image", group)
     Autofocus()
     CentreOnFeature(NP_image_focused)
     ShiftFocus(donut_z_offset)
     MoveToBackgroundLoc()
-    TakeInfinity3Image("Infinity3_FirstBkgndWhiteLight_Image")
-    TakeAndor0Order("Raman_White_Light_Bkgnd_0Order")
-    TakeAndorSpec("Raman_White_Light_Bkgnd_Spectrum")
+    TakeInfinity3Image("Infinity3_FirstBkgndWhiteLight_Image", group)
+    TakeAndor0Order("Raman_White_Light_Bkgnd_0Order", group)
+    TakeAndorSpec("Raman_White_Light_Bkgnd_Spectrum", group)
     Autofocus()
     CentreOnFeature(NP_image_focused)
     ShiftFocus(donut_z_offset)
     MoveToBackgroundLoc()
     CloseWhiteLightShutter()
     OpenLaserShutter()
-    TakeAndor0Order("Raman_Laser_0Order_atBkgndLoc")
-    TakeAndorSpec("Raman_Laser_Spectrum_atBkgndLoc")
+    TakeAndor0Order("Raman_Laser_0Order_atBkgndLoc", group)
+    TakeAndorSpec("Raman_Laser_Spectrum_atBkgndLoc", group)
     CloseLaserShutter()
     OpenWhiteLightShutter()
-    TakeInfinity3Image("Infinity3_SecondWhiteLight_atBkgndLoc_Image")
+    TakeInfinity3Image("Infinity3_SecondWhiteLight_atBkgndLoc_Image", group)
     CloseLaserShutter()
     OpenWhiteLightShutter()
     ReturnFromBackgroundLoc()
-    #CentreOnFeature(NP_image_focused)
-    #CentreOnFeature(NP_image_unfocused, ignore_z_pos=False)
+    # CentreOnFeature(NP_image_focused)
+    # CentreOnFeature(NP_image_unfocused, ignore_z_pos=False)
+
+
+def QuickStudyParticleEmissionProfile(NP_image_focused=None, group=None):
+    OpenWhiteLightShutter()
+    SetShamrockSlit(2000)
+    # NP_image_unfocused = CWL.thumb_image()
+    Autofocus()
+    if NP_image_focused is None:
+        NP_image_focused = CWL.thumb_image()
+    CentreOnFeature(NP_image_focused)
+    ShiftFocus(donut_z_offset)
+    TakeInfinity3Image("Infinity3_FirstWhiteLight_Image", group)
+    TakeOOpticsSpec(group=group)
+    CloseWhiteLightShutter()
+    OpenLaserShutter()
+    TakeAndor0Order("Raman_Laser_0Order", group)
+    CloseLaserShutter()
+    OpenWhiteLightShutter()
+    TakeInfinity3Image("Infinity3_SecondWhiteLight_Image", group)
+    # CentreOnFeature(NP_image_focused)
+    # CentreOnFeature(NP_image_unfocused, ignore_z_pos=False)
