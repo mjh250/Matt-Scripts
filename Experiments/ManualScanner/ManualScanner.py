@@ -13,7 +13,7 @@ from nplab.instrument.shutter.BX51_uniblitz import Uniblitz
 # Set up camera with click to move stage control
 cam = LumeneraCamera(1)
 # cam.show_gui(blocking=False)
-stage = ProScan("COM9")
+stage = ProScan("COM4")
 CWL = CameraWithLocation(cam, stage)
 CWL.show_gui(blocking=False)
 
@@ -22,5 +22,5 @@ shutter = ThorLabsSC10('COM1')
 shutter.show_gui(blocking=False)
 
 # Display white light shutter control
-whiteShutter = Uniblitz("COM7")
+whiteShutter = Uniblitz("COM10")
 whiteShutter.show_gui(blocking=False)

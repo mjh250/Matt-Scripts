@@ -38,7 +38,7 @@ tile_edge_width_to_ignore = 250
 
 # Set up camera with click to move stage control
 cam = LumeneraCamera(1)
-stage = ProScan("COM9")
+stage = ProScan("COM4")
 CWL = CameraWithLocation(cam, stage)
 CWL.show_gui(blocking=False)
 CWL.af_step_size = 0.5
@@ -51,7 +51,7 @@ spectrometer = OceanOpticsSpectrometer(0)
 spectrometer.show_gui(blocking=False)
 
 # Display white light shutter control
-whiteShutter = Uniblitz("COM7")
+whiteShutter = Uniblitz("COM10")
 whiteShutter.show_gui(blocking=False)
 
 # openshamdor
